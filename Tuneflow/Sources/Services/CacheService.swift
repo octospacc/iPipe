@@ -1,186 +1,170 @@
 import Foundation
 import Combine
 
-public final class CacheService: NSObject, ObservableObject, @unchecked Sendable {
+/// Downloads audio straight from YouTube's CDN in Range chunks (the CDN throttles/refuses
+/// single full-file requests), writes to a temp file, then moves it into DownloadedAudio/.
+public final class CacheService: ObservableObject, @unchecked Sendable {
     public static let shared = CacheService()
-    
+
     @Published public private(set) var downloadProgress: [String: Double] = [:]
     @Published public private(set) var activeDownloads: Set<String> = []
-    
-    private var downloadTasks: [String: URLSessionDownloadTask] = [:]
-    private var taskToTrackId: [Int: String] = [:]
-    private var downloadCompletions: [String: (Result<String, Error>) -> Void] = [:]
-    
-    private var session: URLSession!
-    private let fileManager = FileManager.default
+
+    private var tasks: [String: Task<String, Error>] = [:]
     private let lock = NSLock()
-    
-    private override init() {
-        super.init()
+    private let fileManager = FileManager.default
+    private let session: URLSession
+    private let chunkSize: Int64 = 1_048_576
+
+    private init() {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 30
-        config.timeoutIntervalForResource = 120
-        self.session = URLSession(configuration: config, delegate: self, delegateQueue: .main)
+        config.timeoutIntervalForResource = 300
+        session = URLSession(configuration: config)
         ensureAudioDirectoryExists()
     }
-    
+
     private var audioDirectoryURL: URL {
         Track.documentsDirectory.appendingPathComponent("DownloadedAudio", isDirectory: true)
     }
-    
+
     private func ensureAudioDirectoryExists() {
-        if !fileManager.fileExists(atPath: audioDirectoryURL.path) {
-            try? fileManager.createDirectory(at: audioDirectoryURL, withIntermediateDirectories: true)
-        }
+        try? fileManager.createDirectory(at: audioDirectoryURL, withIntermediateDirectories: true)
     }
-    
+
     public func isTrackDownloaded(trackId: String) -> Bool {
-        let destination = audioDirectoryURL.appendingPathComponent("\(trackId).m4a")
-        return fileManager.fileExists(atPath: destination.path)
+        fileManager.fileExists(atPath: audioDirectoryURL.appendingPathComponent("\(trackId).m4a").path)
     }
-    
+
     public func getLocalAudioURL(trackId: String) -> URL? {
-        let destination = audioDirectoryURL.appendingPathComponent("\(trackId).m4a")
-        return fileManager.fileExists(atPath: destination.path) ? destination : nil
+        let u = audioDirectoryURL.appendingPathComponent("\(trackId).m4a")
+        return fileManager.fileExists(atPath: u.path) ? u : nil
     }
-    
-    /// Downloads direct audio stream or direct audio source into local storage
+
+    // Sync helpers so NSLock is never held across an await.
+    private func existingTask(_ id: String) -> Task<String, Error>? {
+        lock.lock(); defer { lock.unlock() }
+        return tasks[id]
+    }
+    private func setTask(_ t: Task<String, Error>?, for id: String) {
+        lock.lock(); defer { lock.unlock() }
+        tasks[id] = t
+    }
+
+    /// Returns the path relative to the documents directory ("DownloadedAudio/<id>.m4a").
     public func downloadTrack(track: Track, directAudioURL: URL? = nil) async throws -> String {
-        if isTrackDownloaded(trackId: track.id) {
-            return "DownloadedAudio/\(track.id).m4a"
-        }
-        
-        let targetURL: URL
-        if let directAudioURL = directAudioURL {
-            targetURL = directAudioURL
-        } else {
-            // Attempt to resolve from custom instance or fallback
-            targetURL = try await YouTubeDirectService.shared.resolveAudioStreamURL(videoId: track.id)
-        }
-        
-        return try await withCheckedThrowingContinuation { continuation in
-            DispatchQueue.main.async { [weak self] in
-                guard let self = self else {
-                    continuation.resume(throwing: URLError(.cancelled))
-                    return
-                }
-                
-                self.lock.lock()
-                defer { self.lock.unlock() }
-                
-                if let existing = self.downloadTasks[track.id] {
-                    existing.cancel()
-                }
-                
-                var request = URLRequest(url: targetURL)
-                request.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
-                
-                let task = self.session.downloadTask(with: request)
-                self.downloadTasks[track.id] = task
-                self.taskToTrackId[task.taskIdentifier] = track.id
+        let relative = "DownloadedAudio/\(track.id).m4a"
+        if isTrackDownloaded(trackId: track.id) { return relative }
+        if let existing = existingTask(track.id) { return try await existing.value }
+
+        let task = Task<String, Error> { [weak self] in
+            guard let self else { throw URLError(.cancelled) }
+            await MainActor.run {
                 self.activeDownloads.insert(track.id)
-                self.downloadProgress[track.id] = 0.0
-                
-                self.downloadCompletions[track.id] = { result in
-                    switch result {
-                    case .success(let path):
-                        continuation.resume(returning: path)
-                    case .failure(let error):
-                        continuation.resume(throwing: error)
-                    }
-                }
-                
-                task.resume()
+                self.downloadProgress[track.id] = 0
+            }
+            do {
+                try await self.performDownload(track: track, directURL: directAudioURL)
+                StorageService.shared.saveTrack(track)
+                StorageService.shared.updateTrackLocalPath(trackId: track.id, relativePath: relative)
+                await self.finish(track.id)
+                return relative
+            } catch {
+                await self.finish(track.id)
+                throw error
             }
         }
+        setTask(task, for: track.id)
+        return try await task.value
     }
-    
+
+    private func finish(_ id: String) async {
+        setTask(nil, for: id)
+        await MainActor.run {
+            self.activeDownloads.remove(id)
+            self.downloadProgress.removeValue(forKey: id)
+        }
+    }
+
+    private func performDownload(track: Track, directURL: URL?) async throws {
+        var url: URL
+        var length: Int64?
+        var userAgent = "Mozilla/5.0"
+        if let directURL {
+            url = directURL
+        } else {
+            let s = try await YouTubeDirectService.shared.resolveAudioStream(videoId: track.id)
+            url = s.url; length = s.contentLength; userAgent = s.userAgent
+        }
+
+        func ranged(_ from: Int64, _ to: Int64) async throws -> (Data, HTTPURLResponse) {
+            var req = URLRequest(url: url)
+            req.setValue(userAgent, forHTTPHeaderField: "User-Agent")
+            req.setValue("bytes=\(from)-\(to)", forHTTPHeaderField: "Range")
+            let (data, resp) = try await session.data(for: req)
+            guard let http = resp as? HTTPURLResponse, http.statusCode == 200 || http.statusCode == 206 else {
+                throw URLError(.badServerResponse)
+            }
+            return (data, http)
+        }
+
+        // Learn total size if the API did not tell us.
+        var first: Data? = nil
+        if length == nil {
+            let (data, http) = try await ranged(0, chunkSize - 1)
+            first = data
+            if let cr = http.value(forHTTPHeaderField: "Content-Range"),
+               let total = cr.split(separator: "/").last, let n = Int64(total) {
+                length = n
+            } else if http.statusCode == 200 {
+                length = Int64(data.count)   // server ignored Range; whole file returned
+            }
+        }
+        guard let total = length, total > 0 else { throw URLError(.cannotParseResponse) }
+
+        ensureAudioDirectoryExists()
+        let tmp = fileManager.temporaryDirectory.appendingPathComponent("\(track.id)-\(UUID().uuidString).part")
+        fileManager.createFile(atPath: tmp.path, contents: nil)
+        let handle = try FileHandle(forWritingTo: tmp)
+        var ok = false
+        defer {
+            try? handle.close()
+            if !ok { try? fileManager.removeItem(at: tmp) }
+        }
+
+        var offset: Int64 = 0
+        if let first {
+            try handle.write(contentsOf: first)
+            offset = Int64(first.count)
+        }
+        while offset < total {
+            try Task.checkCancellation()
+            let end = min(offset + chunkSize - 1, total - 1)
+            let (data, _) = try await ranged(offset, end)
+            if data.isEmpty { throw URLError(.zeroByteResource) }
+            try handle.write(contentsOf: data)
+            offset += Int64(data.count)
+            let p = Double(offset) / Double(total)
+            await MainActor.run { self.downloadProgress[track.id] = min(p, 1) }
+        }
+        try handle.close()
+
+        let dest = audioDirectoryURL.appendingPathComponent("\(track.id).m4a")
+        if fileManager.fileExists(atPath: dest.path) { try fileManager.removeItem(at: dest) }
+        try fileManager.moveItem(at: tmp, to: dest)
+        ok = true
+    }
+
     public func cancelDownload(trackId: String) {
-        lock.lock()
-        defer { self.lock.unlock() }
-        
-        if let task = downloadTasks[trackId] {
-            task.cancel()
-            downloadTasks.removeValue(forKey: trackId)
-            taskToTrackId.removeValue(forKey: task.taskIdentifier)
-        }
-        activeDownloads.remove(trackId)
-        downloadProgress.removeValue(forKey: trackId)
-        if let completion = downloadCompletions.removeValue(forKey: trackId) {
-            completion(.failure(URLError(.cancelled)))
-        }
+        existingTask(trackId)?.cancel()
     }
-    
+
     public func deleteTrackAudio(trackId: String) {
-        let destination = audioDirectoryURL.appendingPathComponent("\(trackId).m4a")
-        try? fileManager.removeItem(at: destination)
+        try? fileManager.removeItem(at: audioDirectoryURL.appendingPathComponent("\(trackId).m4a"))
+        StorageService.shared.updateTrackLocalPath(trackId: trackId, relativePath: nil)
     }
-    
+
     public func clearAllCache() {
         try? fileManager.removeItem(at: audioDirectoryURL)
         ensureAudioDirectoryExists()
-    }
-}
-
-extension CacheService: URLSessionDownloadDelegate {
-    public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
-        guard let trackId = taskToTrackId[downloadTask.taskIdentifier] else { return }
-        
-        if totalBytesExpectedToWrite > 0 {
-            let progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
-            DispatchQueue.main.async {
-                self.downloadProgress[trackId] = progress
-            }
-        }
-    }
-    
-    public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
-        guard let trackId = taskToTrackId[downloadTask.taskIdentifier] else { return }
-        
-        ensureAudioDirectoryExists()
-        let destination = audioDirectoryURL.appendingPathComponent("\(trackId).m4a")
-        try? fileManager.removeItem(at: destination)
-        
-        do {
-            try fileManager.moveItem(at: location, to: destination)
-            let relativePath = "DownloadedAudio/\(trackId).m4a"
-            
-            DispatchQueue.main.async {
-                self.activeDownloads.remove(trackId)
-                self.downloadProgress.removeValue(forKey: trackId)
-                self.downloadTasks.removeValue(forKey: trackId)
-                self.taskToTrackId.removeValue(forKey: downloadTask.taskIdentifier)
-                
-                if let completion = self.downloadCompletions.removeValue(forKey: trackId) {
-                    completion(.success(relativePath))
-                }
-            }
-        } catch {
-            DispatchQueue.main.async {
-                self.activeDownloads.remove(trackId)
-                self.downloadProgress.removeValue(forKey: trackId)
-                self.downloadTasks.removeValue(forKey: trackId)
-                self.taskToTrackId.removeValue(forKey: downloadTask.taskIdentifier)
-                
-                if let completion = self.downloadCompletions.removeValue(forKey: trackId) {
-                    completion(.failure(error))
-                }
-            }
-        }
-    }
-    
-    public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        guard let error = error, let trackId = taskToTrackId[task.taskIdentifier] else { return }
-        
-        DispatchQueue.main.async {
-            self.activeDownloads.remove(trackId)
-            self.downloadProgress.removeValue(forKey: trackId)
-            self.downloadTasks.removeValue(forKey: trackId)
-            self.taskToTrackId.removeValue(forKey: task.taskIdentifier)
-            
-            if let completion = self.downloadCompletions.removeValue(forKey: trackId) {
-                completion(.failure(error))
-            }
-        }
     }
 }
