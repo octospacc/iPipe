@@ -22,6 +22,26 @@ public struct PlaylistDetailView: View {
         return pl.trackIds.compactMap { storage.savedTracks[$0] }
     }
     
+    private var playlistShareURL: URL? {
+        Playlist.youTubeMusicLink(videoIds: tracks.map(\.id))
+    }
+    
+    private var repeatTitle: String {
+        switch player.repeatMode {
+        case .off: return "Repeat"
+        case .all: return "Repeat All"
+        case .one: return "Repeat One"
+        }
+    }
+    
+    private var repeatHelp: String {
+        switch player.repeatMode {
+        case .off: return "Repeat is off"
+        case .all: return "Repeating the whole playlist"
+        case .one: return "Repeating the current song"
+        }
+    }
+    
     public var body: some View {
         Group {
             if let pl = playlist {
@@ -42,6 +62,8 @@ public struct PlaylistDetailView: View {
                             if !tracks.isEmpty {
                                 HStack(spacing: 12) {
                                     Button(action: {
+                                        // "Play All" means in order, so honour that explicitly.
+                                        player.isShuffle = false
                                         player.playQueue(tracks: tracks, startIndex: 0)
                                     }) {
                                         Label("Play All", systemImage: "play.fill")
@@ -67,6 +89,20 @@ public struct PlaylistDetailView: View {
                                             .cornerRadius(20)
                                     }
                                     .buttonStyle(.plain)
+                                    
+                                    Button(action: {
+                                        player.cycleRepeatMode()
+                                    }) {
+                                        Label(repeatTitle, systemImage: player.repeatMode == .one ? "repeat.1" : "repeat")
+                                            .font(.headline)
+                                            .padding(.horizontal, 16)
+                                            .padding(.vertical, 8)
+                                            .background(player.repeatMode == .off ? Color.gray.opacity(0.15) : Color.accentColor.opacity(0.15))
+                                            .foregroundColor(player.repeatMode == .off ? .primary : .accentColor)
+                                            .cornerRadius(20)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .help(repeatHelp)
                                 }
                                 .padding(.top, 4)
                             }
@@ -116,7 +152,14 @@ public struct PlaylistDetailView: View {
             }
         }
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItemGroup(placement: .primaryAction) {
+                if let shareURL = playlistShareURL {
+                    ShareLink(item: shareURL) {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                    .help("Share playlist as a YouTube Music link")
+                }
+                
                 Button(role: .destructive, action: {
                     showingDeleteConfirmation = true
                 }) {

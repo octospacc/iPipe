@@ -11,7 +11,7 @@ public final class StorageService: ObservableObject, @unchecked Sendable {
     private let tracksFileURL: URL
     private let playlistsFileURL: URL
     private let historyFileURL: URL
-    private let queue = DispatchQueue(label: "com.tuneflow.storage", qos: .utility)
+    private let queue = DispatchQueue(label: "org.eu.octt.iPipe.storage", qos: .utility)
 
     private let maxHistoryEntries = 200
 
@@ -115,6 +115,25 @@ public final class StorageService: ObservableObject, @unchecked Sendable {
         }
     }
 
+    /// Saves the tracks and creates a playlist in one step (used by playlist import).
+    @discardableResult
+    public func importPlaylist(title: String, tracks: [Track], description: String = "Imported from YouTube") -> Playlist {
+        var seen = Set<String>()
+        var ordered: [Track] = []
+        for track in tracks where seen.insert(track.id).inserted {
+            ordered.append(track)
+        }
+        for track in ordered {
+            self.savedTracks[track.id] = track
+        }
+        persistTracks()
+
+        let playlist = Playlist(title: title, description: description, trackIds: ordered.map(\.id))
+        playlists.append(playlist)
+        persistPlaylists()
+        return playlist
+    }
+    
     public func removeTrackFromPlaylist(trackId: String, playlistId: UUID) {
         if let index = playlists.firstIndex(where: { $0.id == playlistId }) {
             playlists[index].trackIds.removeAll { $0 == trackId }

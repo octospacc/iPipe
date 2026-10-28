@@ -46,6 +46,13 @@ public struct Track: Identifiable, Codable, Hashable, Sendable {
         return String(format: "%d:%02d", mins, secs)
     }
     
+    /// Shareable YouTube Music link for this track.
+    public var shareURL: URL? {
+        let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_")
+        guard !id.isEmpty, id.rangeOfCharacter(from: allowed.inverted) == nil else { return nil }
+        return URL(string: "https://music.youtube.com/watch?v=\(id)")
+    }
+    
     public static var documentsDirectory: URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
     }

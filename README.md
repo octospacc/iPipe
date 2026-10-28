@@ -12,9 +12,9 @@ iPipe (a play on YouTube) is a native **SwiftUI** music player for **iOS and mac
 ## Project Structure
 
 ```
-├── Tuneflow.xcodeproj
-├── Tuneflow
-│   ├── Resources            # Info.plist, entitlements, Assets.xcassets (iPipe icon)
+├── iPipe.xcodeproj
+├── iPipe
+│   ├── Resources            # Info.plist, iPipe.entitlements, Assets.xcassets
 │   └── Sources
 │       ├── Models           # Track, Playlist
 │       ├── Services
@@ -29,4 +29,4 @@ iPipe (a play on YouTube) is a native **SwiftUI** music player for **iOS and mac
 
 ## Getting Started
 
-Open `Tuneflow.xcodeproj` in Xcode 15+, pick a device or Mac, and run (⌘R).
+Open `iPipe.xcodeproj` in Xcode 15+, pick a device or Mac, and run (⌘R).

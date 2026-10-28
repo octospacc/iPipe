@@ -237,7 +237,7 @@ public struct NowPlayingView: View {
         let isDownloaded = cacheService.isTrackDownloaded(trackId: track.id)
         let isDownloading = cacheService.activeDownloads.contains(track.id)
         
-        HStack(spacing: 16) {
+        HStack(spacing: 10) {
             Button(action: {
                 if isDownloaded {
                     cacheService.deleteTrackAudio(trackId: track.id)
@@ -256,7 +256,7 @@ public struct NowPlayingView: View {
                     systemImage: isDownloaded ? "checkmark.circle.fill" : (isDownloading ? "arrow.down.circle.dotted" : "arrow.down.circle")
                 )
                 .font(.footnote)
-                .padding(.horizontal, 14)
+                .padding(.horizontal, 12)
                 .padding(.vertical, 8)
                 .background(Color.gray.opacity(0.15))
                 .cornerRadius(20)
@@ -269,13 +269,26 @@ public struct NowPlayingView: View {
             }) {
                 Label("Add to Playlist", systemImage: "plus.circle")
                     .font(.footnote)
-                    .padding(.horizontal, 14)
+                    .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(Color.gray.opacity(0.15))
                     .cornerRadius(20)
             }
             .buttonStyle(.plain)
             .help("Add to playlist")
+            
+            if let shareURL = track.shareURL {
+                ShareLink(item: shareURL) {
+                    Label("Share", systemImage: "square.and.arrow.up")
+                        .font(.footnote)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Color.gray.opacity(0.15))
+                        .cornerRadius(20)
+                }
+                .buttonStyle(.plain)
+                .help("Share YouTube Music link")
+            }
         }
         .padding(.top, 4)
     }

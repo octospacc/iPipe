@@ -9,6 +9,7 @@ public struct LibraryView: View {
     @State private var newPlaylistTitle = ""
     @State private var selectedFilter: LibraryFilter = .all
     @State private var selectedTrackForPlaylist: Track?
+    @State private var showingImportPlaylist = false
     
     public enum LibraryFilter: String, CaseIterable, Identifiable {
         case all = "All Songs"
@@ -76,14 +77,23 @@ public struct LibraryView: View {
                     playlistListView
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .navigationTitle("Your Library")
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
+                ToolbarItemGroup(placement: .primaryAction) {
+                    Button(action: {
+                        showingImportPlaylist = true
+                    }) {
+                        Image(systemName: "square.and.arrow.down")
+                    }
+                    .help("Import a YouTube playlist")
+                    
                     Button(action: {
                         showingCreatePlaylist = true
                     }) {
                         Image(systemName: "plus")
                     }
+                    .help("New playlist")
                 }
             }
             .alert("Create Playlist", isPresented: $showingCreatePlaylist) {
@@ -102,6 +112,11 @@ public struct LibraryView: View {
             .sheet(item: $selectedTrackForPlaylist) { track in
                 AddToPlaylistSheet(track: track)
             }
+            .sheet(isPresented: $showingImportPlaylist) {
+                ImportPlaylistSheet { _ in
+                    selectedFilter = .playlists
+                }
+            }
         }
     }
     
@@ -114,7 +129,6 @@ public struct LibraryView: View {
         onRemove: @escaping (Track) -> Void
     ) -> some View {
         if tracks.isEmpty {
-            Spacer()
             VStack(spacing: 12) {
                 Image(systemName: emptyIcon)
                     .font(.system(size: 48))
@@ -125,7 +139,7 @@ public struct LibraryView: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
             }
-            Spacer()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             List {
                 ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in

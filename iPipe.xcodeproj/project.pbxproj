@@ -22,10 +22,11 @@
 		200000000000000D00000001 /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000D00000001 /* LibraryView.swift */; };
 		200000000000000E00000001 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000E00000001 /* SettingsView.swift */; };
 		200000000000000F00000001 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000F00000001 /* ContentView.swift */; };
-		200000000000001000000001 /* TuneflowApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000001000000001 /* TuneflowApp.swift */; };
+		200000000000001000000001 /* iPipeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000001000000001 /* iPipeApp.swift */; };
 		200000000000001100000001 /* YouTubeDirectService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000001100000001 /* YouTubeDirectService.swift */; };
 		200000000000001200000001 /* EmbedStreamPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000001200000001 /* EmbedStreamPlayer.swift */; };
 		200000000000001300000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000001300000001 /* Assets.xcassets */; };
+		200000000000001400000001 /* ImportPlaylistSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000001400000001 /* ImportPlaylistSheet.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -44,12 +45,13 @@
 		100000000000000D00000001 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
 		100000000000000E00000001 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		100000000000000F00000001 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		100000000000001000000001 /* TuneflowApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TuneflowApp.swift; sourceTree = "<group>"; };
+		100000000000001000000001 /* iPipeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iPipeApp.swift; sourceTree = "<group>"; };
 		100000000000001100000001 /* YouTubeDirectService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeDirectService.swift; sourceTree = "<group>"; };
 		100000000000001200000001 /* EmbedStreamPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmbedStreamPlayer.swift; sourceTree = "<group>"; };
 		100000000000001300000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		100000000000001400000001 /* ImportPlaylistSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportPlaylistSheet.swift; sourceTree = "<group>"; };
 		300000000000000100000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		300000000000000200000001 /* Tuneflow.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Tuneflow.entitlements; sourceTree = "<group>"; };
+		300000000000000200000001 /* iPipe.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = iPipe.entitlements; sourceTree = "<group>"; };
 		A0000001A000000A00000001 /* iPipe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iPipe.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -105,6 +107,7 @@
 				100000000000000D00000001 /* LibraryView.swift */,
 				100000000000000E00000001 /* SettingsView.swift */,
 				100000000000000F00000001 /* ContentView.swift */,
+				100000000000001400000001 /* ImportPlaylistSheet.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -112,7 +115,7 @@
 		A0000001A000000500000001 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
-				100000000000001000000001 /* TuneflowApp.swift */,
+				100000000000001000000001 /* iPipeApp.swift */,
 				A0000001A000000100000001 /* Models */,
 				A0000001A000000200000001 /* Services */,
 				A0000001A000000300000001 /* ViewModels */,
@@ -125,25 +128,25 @@
 			isa = PBXGroup;
 			children = (
 				300000000000000100000001 /* Info.plist */,
-				300000000000000200000001 /* Tuneflow.entitlements */,
+				300000000000000200000001 /* iPipe.entitlements */,
 				100000000000001300000001 /* Assets.xcassets */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
 		};
-		A0000001A000000700000001 /* Tuneflow */ = {
+		A0000001A000000700000001 /* iPipe */ = {
 			isa = PBXGroup;
 			children = (
 				A0000001A000000500000001 /* Sources */,
 				A0000001A000000600000001 /* Resources */,
 			);
-			path = Tuneflow;
+			path = iPipe;
 			sourceTree = "<group>";
 		};
 		A0000001A000000800000001 = {
 			isa = PBXGroup;
 			children = (
-				A0000001A000000700000001 /* Tuneflow */,
+				A0000001A000000700000001 /* iPipe */,
 				A0000001A000000900000001 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -159,9 +162,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		B0000001B000000100000001 /* Tuneflow */ = {
+		B0000001B000000100000001 /* iPipe */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = D0000001D000000300000001 /* Build configuration list for PBXNativeTarget "Tuneflow" */;
+			buildConfigurationList = D0000001D000000300000001 /* Build configuration list for PBXNativeTarget "iPipe" */;
 			buildPhases = (
 				C0000001C000000100000001 /* Sources */,
 				C0000001C000000200000001 /* Frameworks */,
@@ -171,8 +174,8 @@
 			);
 			dependencies = (
 			);
-			name = Tuneflow;
-			productName = Tuneflow;
+			name = iPipe;
+			productName = iPipe;
 			productReference = A0000001A000000A00000001 /* iPipe.app */;
 			productType = "com.apple.product-type.application";
 		};
@@ -184,14 +187,14 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1600;
-				LastUpgradeCheck = 1600;
+				LastUpgradeCheck = 2710;
 				TargetAttributes = {
 					B0000001B000000100000001 = {
 						CreatedOnToolsVersion = 16.0;
 					};
 				};
 			};
-			buildConfigurationList = D0000001D000000600000001 /* Build configuration list for PBXProject "Tuneflow" */;
+			buildConfigurationList = D0000001D000000600000001 /* Build configuration list for PBXProject "iPipe" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -204,7 +207,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				B0000001B000000100000001 /* Tuneflow */,
+				B0000001B000000100000001 /* iPipe */,
 			);
 		};
 /* End PBXProject section */
@@ -242,7 +245,8 @@
 				200000000000000D00000001 /* LibraryView.swift in Sources */,
 				200000000000000E00000001 /* SettingsView.swift in Sources */,
 				200000000000000F00000001 /* ContentView.swift in Sources */,
-				200000000000001000000001 /* TuneflowApp.swift in Sources */,
+				200000000000001000000001 /* iPipeApp.swift in Sources */,
+				200000000000001400000001 /* ImportPlaylistSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -252,19 +256,19 @@
 		D0000001D000000100000001 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = Tuneflow/Resources/Tuneflow.entitlements;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 23Z3P983RV;
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = Tuneflow/Resources/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 1.0;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				PRODUCT_BUNDLE_IDENTIFIER = org.eu.octt.Tuneflow;
+				CODE_SIGN_ENTITLEMENTS = iPipe/Resources/iPipe.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = iPipe/Resources/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
+				MACOSX_DEPLOYMENT_TARGET = "$(RECOMMENDED_MACOSX_DEPLOYMENT_TARGET)";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.eu.octt.iPipe;
 				PRODUCT_NAME = iPipe;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
 				SUPPORTS_MACCATALYST = NO;
@@ -278,19 +282,19 @@
 		D0000001D000000200000001 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = Tuneflow/Resources/Tuneflow.entitlements;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 23Z3P983RV;
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = Tuneflow/Resources/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 1.0;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				PRODUCT_BUNDLE_IDENTIFIER = org.eu.octt.Tuneflow;
+				CODE_SIGN_ENTITLEMENTS = iPipe/Resources/iPipe.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = iPipe/Resources/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
+				MACOSX_DEPLOYMENT_TARGET = "$(RECOMMENDED_MACOSX_DEPLOYMENT_TARGET)";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.eu.octt.iPipe;
 				PRODUCT_NAME = iPipe;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
 				SUPPORTS_MACCATALYST = NO;
@@ -335,7 +339,9 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 23Z3P983RV;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -346,12 +352,15 @@
 				GCC_PREPROCESSOR_DEFINITIONS = "DEBUG=1 ";
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNDEFINED_VARIABLES = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG ";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -391,7 +400,9 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 23Z3P983RV;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -399,11 +410,14 @@
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNDEFINED_VARIABLES = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 			};
@@ -412,7 +426,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		D0000001D000000300000001 /* Build configuration list for PBXNativeTarget "Tuneflow" */ = {
+		D0000001D000000300000001 /* Build configuration list for PBXNativeTarget "iPipe" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D0000001D000000100000001 /* Debug */,
@@ -421,7 +435,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		D0000001D000000600000001 /* Build configuration list for PBXProject "Tuneflow" */ = {
+		D0000001D000000600000001 /* Build configuration list for PBXProject "iPipe" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D0000001D000000400000001 /* Debug */,

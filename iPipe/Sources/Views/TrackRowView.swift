@@ -132,6 +132,16 @@ public struct TrackRowView: View {
                     .help("Add to playlist")
                 }
                 
+                // Share
+                if let shareURL = track.shareURL {
+                    ShareLink(item: shareURL) {
+                        Image(systemName: "square.and.arrow.up")
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Share YouTube Music link")
+                }
+                
                 // Remove from the current list
                 if let onRemove = onRemove {
                     Button(action: onRemove) {

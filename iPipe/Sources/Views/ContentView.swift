@@ -88,39 +88,42 @@ public struct ContentView: View {
         }
         #else
         // iOS TabView layout
-        ZStack(alignment: .bottom) {
-            TabView(selection: $selectedTab) {
-                SearchView()
-                    .tabItem {
-                        Label("Search", systemImage: "magnifyingglass")
-                    }
-                    .tag(TabItem.search)
+        TabView(selection: $selectedTab) {
+            withMiniPlayer(SearchView())
+                .tabItem {
+                    Label("Search", systemImage: "magnifyingglass")
+                }
+                .tag(TabItem.search)
 
-                LibraryView()
-                    .tabItem {
-                        Label("Library", systemImage: "music.note.list")
-                    }
-                    .tag(TabItem.library)
+            withMiniPlayer(LibraryView())
+                .tabItem {
+                    Label("Library", systemImage: "music.note.list")
+                }
+                .tag(TabItem.library)
 
-                SettingsView()
-                    .tabItem {
-                        Label("Settings", systemImage: "gearshape")
-                    }
-                    .tag(TabItem.settings)
-            }
-
-            // Floating MiniPlayer above TabBar
-            if player.currentTrack != nil {
-                MiniPlayerView(onExpand: {
-                    isNowPlayingExpanded = true
-                })
-                .padding(.bottom, 49) // Height of iOS standard TabBar
-            }
+            withMiniPlayer(SettingsView())
+                .tabItem {
+                    Label("Settings", systemImage: "gearshape")
+                }
+                .tag(TabItem.settings)
         }
         .sheet(isPresented: $isNowPlayingExpanded) {
             NowPlayingView()
                 .presentationDragIndicator(.visible)
         }
         #endif
+    }
+    
+    /// The mini player is a safe-area inset on every tab, so scrollable screens
+    /// (especially Settings) keep all of their content above it.
+    @ViewBuilder
+    private func withMiniPlayer<Content: View>(_ content: Content) -> some View {
+        content.safeAreaInset(edge: .bottom, spacing: 0) {
+            if player.currentTrack != nil {
+                MiniPlayerView(onExpand: {
+                    isNowPlayingExpanded = true
+                })
+            }
+        }
     }
 }
