@@ -65,7 +65,7 @@ public struct SettingsView: View {
                     }
                 }
                 
-                Section(header: Text("About Tuneflow")) {
+                Section(header: Text("About iPipe")) {
                     HStack {
                         Text("Version")
                         Spacer()
@@ -92,6 +92,12 @@ public struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            #if os(macOS)
+            .formStyle(.grouped)
+            .padding(.horizontal, 24)
+            .padding(.top, 8)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            #endif
             .alert("Clear Offline Cache", isPresented: $showingClearCacheAlert) {
                 Button("Delete All Audio", role: .destructive) {
                     cache.clearAllCache()

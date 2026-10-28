@@ -1,6 +1,6 @@
-# Tuneflow 🎵
+# iPipe 🎵
 
-A native **SwiftUI** music player for **iOS and macOS** that talks directly to YouTube — no proxies, no API keys, no login.
+iPipe (a play on YouTube) is a native **SwiftUI** music player for **iOS and macOS** that talks directly to YouTube — no proxies, no API keys, no login.
 
 - **Anonymous & private**: no Google account, no telemetry. Playlists and library stay on your device.
 - **Direct YouTube**: search via YouTube's public web client endpoint; online playback through AVPlayer using a signed audio stream resolved from YouTube's player endpoint (the official YouTube IFrame player is only a fallback); downloads via direct, chunked Range requests to YouTube's CDN.
@@ -14,7 +14,7 @@ A native **SwiftUI** music player for **iOS and macOS** that talks directly to Y
 ```
 ├── Tuneflow.xcodeproj
 ├── Tuneflow
-│   ├── Resources            # Info.plist, Tuneflow.entitlements (needs network.client)
+│   ├── Resources            # Info.plist, entitlements, Assets.xcassets (iPipe icon)
 │   └── Sources
 │       ├── Models           # Track, Playlist
 │       ├── Services

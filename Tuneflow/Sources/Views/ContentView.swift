@@ -58,28 +58,33 @@ public struct ContentView: View {
                     Label("Settings", systemImage: "gearshape")
                 }
             }
-            .navigationTitle("Tuneflow")
+            .navigationTitle("iPipe")
         } detail: {
             VStack(spacing: 0) {
-                switch selectedTab {
-                case .search:
-                    SearchView()
-                case .library:
-                    LibraryView()
-                case .settings:
-                    SettingsView()
+                Group {
+                    switch selectedTab {
+                    case .search:
+                        SearchView()
+                    case .library:
+                        LibraryView()
+                    case .settings:
+                        SettingsView()
+                    }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
                 if player.currentTrack != nil {
                     MiniPlayerView(onExpand: {
                         isNowPlayingExpanded = true
                     })
+                    .frame(maxWidth: .infinity)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .sheet(isPresented: $isNowPlayingExpanded) {
             NowPlayingView()
-                .frame(minWidth: 420, minHeight: 600)
+                .frame(minWidth: 440, idealWidth: 480, minHeight: 620, idealHeight: 720)
         }
         #else
         // iOS TabView layout
@@ -114,6 +119,7 @@ public struct ContentView: View {
         }
         .sheet(isPresented: $isNowPlayingExpanded) {
             NowPlayingView()
+                .presentationDragIndicator(.visible)
         }
         #endif
     }

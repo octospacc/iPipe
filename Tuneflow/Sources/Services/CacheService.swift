@@ -82,7 +82,7 @@ public final class CacheService: ObservableObject, @unchecked Sendable {
                 await self.finish(track.id)
                 if !cancelled {
                     #if DEBUG
-                    print("[Tuneflow] download failed for \(track.id): \(error.localizedDescription)")
+                    print("[iPipe] download failed for \(track.id): \(error.localizedDescription)")
                     #endif
                     if reportErrors {
                         await MainActor.run {

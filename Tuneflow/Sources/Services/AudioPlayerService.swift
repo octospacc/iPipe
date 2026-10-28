@@ -30,7 +30,23 @@ public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
     @Published public var queue: [Track] = []
     @Published public var currentIndex: Int = 0
     @Published public var isShuffle: Bool = false
-    @Published public var isRepeat: Bool = false
+
+    /// Off → repeat all → repeat the current song.
+    public enum RepeatMode: String, Codable, Sendable {
+        case off
+        case all
+        case one
+    }
+
+    @Published public var repeatMode: RepeatMode = .off
+
+    public func cycleRepeatMode() {
+        switch repeatMode {
+        case .off: repeatMode = .all
+        case .all: repeatMode = .one
+        case .one: repeatMode = .off
+        }
+    }
 
     // Underlying playback engine
     private var avPlayer: AVPlayer?
@@ -130,7 +146,7 @@ public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
                 DispatchQueue.main.async {
                     guard !cancelled, self.loadToken == token, self.currentTrack?.id == track.id else { return }
                     #if DEBUG
-                    print("[Tuneflow] direct stream resolution failed for \(track.id): \(error.localizedDescription)")
+                    print("[iPipe] direct stream resolution failed for \(track.id): \(error.localizedDescription)")
                     #endif
                     self.startEmbedFallback(for: track, reason: error.localizedDescription)
                 }
@@ -223,7 +239,7 @@ public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
         case .failed:
             let message = error?.localizedDescription ?? "Unknown playback error."
             #if DEBUG
-            print("[Tuneflow] AVPlayer item failed for \(track.id) (remote: \(isRemote)): \(message)")
+            print("[iPipe] AVPlayer item failed for \(track.id) (remote: \(isRemote)): \(message)")
             #endif
             if isRemote && !didFallBackToEmbed {
                 startEmbedFallback(for: track, reason: message)
@@ -254,7 +270,7 @@ public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
         stopAVPlayer()
         configureEmbedCallbacksIfNeeded()
 
-        print("[Tuneflow] falling back to the YouTube embed player for \(track.id): \(reason ?? "")")
+        print("[iPipe] falling back to the YouTube embed player for \(track.id): \(reason ?? "")")
         isLoading = true
         isPlaying = false
         EmbedStreamPlayer.shared.playVideo(videoId: track.id)
@@ -297,7 +313,7 @@ public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
         EmbedStreamPlayer.shared.errorHandler = { [weak self] msg in
             DispatchQueue.main.async {
                 guard let self = self, self.isUsingEmbedPlayer || self.didFallBackToEmbed else { return }
-                print("[Tuneflow] embed player error: \(msg)")
+                print("[iPipe] embed player error: \(msg)")
                 self.errorMessage = msg
                 self.isLoading = false
                 self.isPlaying = false
@@ -402,7 +418,7 @@ public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
         } else if currentIndex + 1 < queue.count {
             currentIndex += 1
             playTrack(queue[currentIndex])
-        } else if isRepeat {
+        } else if repeatMode == .all {
             currentIndex = 0
             playTrack(queue[currentIndex])
         }
@@ -436,14 +452,14 @@ public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
         guard !didHandleEnd else { return }
         didHandleEnd = true
 
-        if isRepeat && queue.count <= 1 {
+        if repeatMode == .one {
             seek(to: 0)
             play()
             return
         }
 
         let hasNextTrack = isShuffle ? queue.count > 1 : currentIndex + 1 < queue.count
-        if !queue.isEmpty && (hasNextTrack || isRepeat) {
+        if !queue.isEmpty && (hasNextTrack || repeatMode == .all) {
             next()
         } else {
             pause()

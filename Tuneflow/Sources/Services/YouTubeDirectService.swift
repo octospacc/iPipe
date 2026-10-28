@@ -255,12 +255,12 @@ public actor YouTubeDirectService {
                 cachedVisitorData = visitor
                 visitorDataExpiry = Date().addingTimeInterval(30 * 60)
                 #if DEBUG
-                print("[Tuneflow] visitor session established (cookies: \(HTTPCookieStorage.shared.cookies?.count ?? 0))")
+                print("[iPipe] visitor session established (cookies: \(HTTPCookieStorage.shared.cookies?.count ?? 0))")
                 #endif
             }
         } catch {
             #if DEBUG
-            print("[Tuneflow] visitor session bootstrap failed: \(error.localizedDescription)")
+            print("[iPipe] visitor session bootstrap failed: \(error.localizedDescription)")
             #endif
         }
         return cachedVisitorData
@@ -327,7 +327,7 @@ public actor YouTubeDirectService {
             } catch {
                 let message = error.localizedDescription
                 #if DEBUG
-                print("[Tuneflow] stream client \(p.name) \(p.version) failed: \(message)")
+                print("[iPipe] stream client \(p.name) \(p.version) failed: \(message)")
                 #endif
                 reasons.append("\(p.name) \(p.version): \(message)")
             }

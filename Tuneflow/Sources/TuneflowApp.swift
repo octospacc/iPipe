@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct TuneflowApp: App {
+struct iPipeApp: App {
     init() {
         // Pre-warm audio session and storage
         _ = StorageService.shared

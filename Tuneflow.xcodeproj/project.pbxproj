@@ -25,6 +25,7 @@
 		200000000000001000000001 /* TuneflowApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000001000000001 /* TuneflowApp.swift */; };
 		200000000000001100000001 /* YouTubeDirectService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000001100000001 /* YouTubeDirectService.swift */; };
 		200000000000001200000001 /* EmbedStreamPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000001200000001 /* EmbedStreamPlayer.swift */; };
+		200000000000001300000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000001300000001 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -46,9 +47,10 @@
 		100000000000001000000001 /* TuneflowApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TuneflowApp.swift; sourceTree = "<group>"; };
 		100000000000001100000001 /* YouTubeDirectService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeDirectService.swift; sourceTree = "<group>"; };
 		100000000000001200000001 /* EmbedStreamPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmbedStreamPlayer.swift; sourceTree = "<group>"; };
+		100000000000001300000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		300000000000000100000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		300000000000000200000001 /* Tuneflow.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Tuneflow.entitlements; sourceTree = "<group>"; };
-		A0000001A000000A00000001 /* Tuneflow.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Tuneflow.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A0000001A000000A00000001 /* iPipe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iPipe.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -124,6 +126,7 @@
 			children = (
 				300000000000000100000001 /* Info.plist */,
 				300000000000000200000001 /* Tuneflow.entitlements */,
+				100000000000001300000001 /* Assets.xcassets */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -148,7 +151,7 @@
 		A0000001A000000900000001 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				A0000001A000000A00000001 /* Tuneflow.app */,
+				A0000001A000000A00000001 /* iPipe.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -170,7 +173,7 @@
 			);
 			name = Tuneflow;
 			productName = Tuneflow;
-			productReference = A0000001A000000A00000001 /* Tuneflow.app */;
+			productReference = A0000001A000000A00000001 /* iPipe.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -211,6 +214,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				200000000000001300000001 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -258,8 +262,10 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MARKETING_VERSION = 1.0;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				PRODUCT_BUNDLE_IDENTIFIER = org.eu.octt.Tuneflow;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = iPipe;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
@@ -282,8 +288,10 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MARKETING_VERSION = 1.0;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				PRODUCT_BUNDLE_IDENTIFIER = org.eu.octt.Tuneflow;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = iPipe;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
