@@ -82,37 +82,20 @@ public actor YouTubeDirectService {
         )
     }
     
-    /// Queries YouTube directly using the official client endpoint without any proxy or API key
-    public func search(query: String) async throws -> [Track] {
-        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return [] }
-        
-        // If user pasted a YouTube URL or Video ID directly, resolve it via oEmbed instantly
-        if let directTrack = try? await fetchTrackByUrlOrId(trimmed) {
-            return [directTrack]
-        }
-        
-        guard let url = URL(string: "https://www.youtube.com/youtubei/v1/search?prettyPrint=false") else {
+    /// Resolves the direct audio stream URL for a given YouTube video ID.
+    /// This method fetches the video data from the internal YouTube API and selects the best audio format.
+    public func resolveAudioStreamURL(videoId: String) async throws -> URL {
+        let urlString = "https://www.youtube.com/youtubei/v1/player?videoId=\(videoId)&key="
+        guard let url = URL(string: urlString) else {
             throw URLError(.badURL)
         }
         
-        let payload: [String: Any] = [
-            "context": [
-                "client": [
-                    "clientName": "WEB",
-                    "clientVersion": "2.20240101.00.00",
-                    "hl": "en",
-                    "gl": "US"
-                ]
-            ],
-            "query": trimmed
-        ]
-        
         var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36", forHTTPHeaderField: "User-Agent")
-        request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+        request.setValue("https://www.youtube.com", forHTTPHeaderField: "Origin")
+        request.setValue("https://www.youtube.com/", forHTTPHeaderField: "Referer")
         
         let (data, response) = try await session.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else {
@@ -123,73 +106,24 @@ public actor YouTubeDirectService {
             throw URLError(.cannotParseResponse)
         }
         
-        var results: [Track] = []
-        
-        // Parse section list items
-        let contents = json["contents"] as? [String: Any]
-        let twoCol = contents?["twoColumnSearchResultsRenderer"] as? [String: Any]
-        let primary = twoCol?["primaryContents"] as? [String: Any]
-        let sectionList = primary?["sectionListRenderer"] as? [String: Any]
-        let sections = sectionList?["contents"] as? [[String: Any]] ?? []
-        
-        for section in sections {
-            let itemSection = section["itemSectionRenderer"] as? [String: Any]
-            let items = itemSection?["contents"] as? [[String: Any]] ?? []
+        if let formats = json["streamingData"] as? [String: Any],
+           let formatsList = formats["adaptiveFormats"] as? [[String: Any]] {
+            let audioFormats = formatsList.filter {
+                let type = $0["type"] as? String ?? ""
+                return type.contains("audio")
+            }
             
-            for item in items {
-                guard let vr = item["videoRenderer"] as? [String: Any],
-                      let videoId = vr["videoId"] as? String else {
-                    continue
-                }
-                
-                // Extract Title
-                let titleRuns = (vr["title"] as? [String: Any])?["runs"] as? [[String: Any]] ?? []
-                let title = titleRuns.compactMap { $0["text"] as? String }.joined()
-                guard !title.isEmpty else { continue }
-                
-                // Extract Channel/Artist
-                let ownerRuns = (vr["ownerText"] as? [String: Any])?["runs"] as? [[String: Any]] ?? []
-                let author = ownerRuns.compactMap { $0["text"] as? String }.joined()
-                
-                // Extract Duration
-                var seconds: Double = 0
-                if let durText = (vr["lengthText"] as? [String: Any])?["simpleText"] as? String {
-                    seconds = parseDurationString(durText)
-                }
-                
-                // Extract Thumbnail
-                var thumbUrl: URL? = nil
-                if let thumbs = (vr["thumbnail"] as? [String: Any])?["thumbnails"] as? [[String: Any]],
-                   let last = thumbs.last,
-                   let urlStr = last["url"] as? String {
-                    thumbUrl = URL(string: urlStr)
-                } else {
-                    thumbUrl = URL(string: "https://i.ytimg.com/vi/\(videoId)/hqdefault.jpg")
-                }
-                
-                let track = Track(
-                    id: videoId,
-                    title: title,
-                    artist: author.isEmpty ? "YouTube Music" : author,
-                    durationSeconds: seconds,
-                    thumbnailUrl: thumbUrl
-                )
-                results.append(track)
+            let sorted = audioFormats.sorted {
+                let bitrate1 = ($0["bitrate"] as? String).flatMap(Int.init) ?? ($0["bitrate"] as? Int ?? 0)
+                let bitrate2 = ($1["bitrate"] as? String).flatMap(Int.init) ?? ($1["bitrate"] as? Int ?? 0)
+                return bitrate1 > bitrate2
+            }
+            
+            if let best = sorted.first, let urlStr = best["url"] as? String, let streamURL = URL(string: urlStr) {
+                return streamURL
             }
         }
         
-        return results
-    }
-    
-    private func parseDurationString(_ text: String) -> Double {
-        let parts = text.split(separator: ":").compactMap { Double($0) }
-        if parts.count == 3 {
-            return parts[0] * 3600 + parts[1] * 60 + parts[2]
-        } else if parts.count == 2 {
-            return parts[0] * 60 + parts[1]
-        } else if parts.count == 1 {
-            return parts[0]
-        }
-        return 0
+        throw URLError(.badURL)
     }
 }

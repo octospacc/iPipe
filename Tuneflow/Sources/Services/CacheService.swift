@@ -55,7 +55,7 @@ public final class CacheService: NSObject, ObservableObject, @unchecked Sendable
             targetURL = directAudioURL
         } else {
             // Attempt to resolve from custom instance or fallback
-            targetURL = try await YouTubeBackendService.shared.resolveAudioStreamURL(videoId: track.id)
+            targetURL = try await YouTubeDirectService.shared.resolveAudioStreamURL(videoId: track.id)
         }
         
         return try await withCheckedThrowingContinuation { continuation in

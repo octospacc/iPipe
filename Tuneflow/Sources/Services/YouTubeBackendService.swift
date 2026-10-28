@@ -19,14 +19,8 @@ public struct InvidiousInstance: Identifiable, Hashable, Codable, Sendable {
 public actor YouTubeBackendService {
     public static let shared = YouTubeBackendService()
     
-    // Default public reliable Invidious/Piped instances with fallbacks
-    private var instances: [InvidiousInstance] = [
-        InvidiousInstance(host: "inv.nadeko.net"),
-        InvidiousInstance(host: "invidious.nerdvpn.de"),
-        InvidiousInstance(host: "invidious.private.coffee"),
-        InvidiousInstance(host: "vid.puffyan.us"),
-        InvidiousInstance(host: "invidious.projectsegfau.lt")
-    ]
+    // Removed Piped/Invidious instances as they are no longer used.
+    private var instances: [InvidiousInstance] = []
     
     private var customBaseURL: URL? = nil
     private let session: URLSession
@@ -50,25 +44,9 @@ public actor YouTubeBackendService {
         guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return []
         }
-        
-        let targetInstances: [InvidiousInstance]
-        if let custom = customBaseURL, let host = custom.host {
-            targetInstances = [InvidiousInstance(host: host, isHttps: custom.scheme == "https")]
-        } else {
-            targetInstances = instances
-        }
-        
-        var lastError: Error?
-        for instance in targetInstances {
-            do {
-                return try await searchInstance(instance: instance, query: query)
-            } catch {
-                lastError = error
-                continue
-            }
-        }
-        
-        throw lastError ?? URLError(.badServerResponse)
+
+        // Use YouTubeDirectService for modern search logic
+        return try await YouTubeDirectService.shared.search(query: query)
     }
     
     private func searchInstance(instance: InvidiousInstance, query: String) async throws -> [Track] {
@@ -131,71 +109,13 @@ public actor YouTubeBackendService {
     }
     
     /// Resolves the direct audio stream URL for a given YouTube video ID.
+    /// Note: This is now deprecated in favor of YouTubeDirectService.
     public func resolveAudioStreamURL(videoId: String) async throws -> URL {
-        let targetInstances: [InvidiousInstance]
-        if let custom = customBaseURL, let host = custom.host {
-            targetInstances = [InvidiousInstance(host: host, isHttps: custom.scheme == "https")]
-        } else {
-            targetInstances = instances
-        }
-        
-        var lastError: Error?
-        for instance in targetInstances {
-            do {
-                return try await resolveStreamFromInstance(instance: instance, videoId: videoId)
-            } catch {
-                lastError = error
-                continue
-            }
-        }
-        
-        throw lastError ?? URLError(.cannotFindHost)
+        return try await YouTubeDirectService.shared.resolveAudioStreamURL(videoId: videoId)
     }
     
     private func resolveStreamFromInstance(instance: InvidiousInstance, videoId: String) async throws -> URL {
-        let url = instance.baseURL.appendingPathComponent("api/v1/videos/\(videoId)")
-        var request = URLRequest(url: url)
-        request.setValue("Tuneflow/1.0 (iOS/macOS; Anonymous Native Music Player)", forHTTPHeaderField: "User-Agent")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else {
-            throw URLError(.badServerResponse)
-        }
-        
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw URLError(.cannotParseResponse)
-        }
-        
-        // 1. Look for adaptiveFormats with audio
-        if let adaptive = json["adaptiveFormats"] as? [[String: Any]] {
-            let audioFormats = adaptive.filter {
-                let type = $0["type"] as? String ?? ""
-                return type.contains("audio")
-            }
-            
-            // Prefer m4a / mp4 audio or best bitrate audio
-            let sorted = audioFormats.sorted {
-                let bitrate1 = ($0["bitrate"] as? String).flatMap(Int.init) ?? ($0["bitrate"] as? Int ?? 0)
-                let bitrate2 = ($1["bitrate"] as? String).flatMap(Int.init) ?? ($1["bitrate"] as? Int ?? 0)
-                return bitrate1 > bitrate2
-            }
-            
-            if let best = sorted.first, let urlStr = best["url"] as? String, let streamURL = URL(string: urlStr) {
-                return streamURL
-            }
-        }
-        
-        // 2. Look for formatStreams (combined video+audio fallback)
-        if let formatStreams = json["formatStreams"] as? [[String: Any]], let first = formatStreams.first, let urlStr = first["url"] as? String, let streamURL = URL(string: urlStr) {
-            return streamURL
-        }
-        
-        // 3. Fallback to direct proxy stream endpoint provided by Invidious
-        let fallbackProxyURL = instance.baseURL.appendingPathComponent("latest_version").appending(queryItems: [
-            URLQueryItem(name: "id", value: videoId),
-            URLQueryItem(name: "itag", value: "140") // itag 140 is 128kbps AAC M4A
-        ])
-        return fallbackProxyURL
+        // This method is no longer used as we are moving to direct YouTube connection.
+        throw URLError(.badURL)
     }
 }
