@@ -17,6 +17,9 @@ import AppKit
 public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
     public static let shared = AudioPlayerService()
 
+    /// `UserDefaults` key backing the "Automatically download songs on play" setting.
+    public static let autoDownloadOnPlayKey = "auto_download_on_play"
+
     @Published public private(set) var currentTrack: Track?
     @Published public private(set) var isPlaying: Bool = false
     @Published public private(set) var currentTime: Double = 0
@@ -38,6 +41,8 @@ public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
     private var isUsingEmbedPlayer: Bool = false
     private var didFallBackToEmbed: Bool = false
     private var embedCallbacksConfigured: Bool = false
+    private var didHandleEnd = false
+    private var historyRecorded = false
 
     // Stale-work guards
     private var loadToken = UUID()
@@ -77,6 +82,8 @@ public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
         // Cancel any in-flight resolution for the previous track.
         loadToken = UUID()
         stopWatchdog()
+        didHandleEnd = false
+        historyRecorded = false
 
         let previousWasEmbed = isUsingEmbedPlayer
         isUsingEmbedPlayer = false
@@ -181,6 +188,7 @@ public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
                     self.isPlaying = true
                     self.isLoading = false
                     self.stopWatchdog()
+                    self.recordHistoryIfNeeded()
                 case .waitingToPlayAtSpecifiedRate:
                     if self.currentTrack?.id == track.id { self.isLoading = true }
                 case .paused:
@@ -262,7 +270,10 @@ public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
                 DispatchQueue.main.async {
                     guard let self = self, self.isUsingEmbedPlayer else { return }
                     self.isPlaying = playing
-                    if playing { self.isLoading = false }
+                    if playing {
+                        self.isLoading = false
+                        self.recordHistoryIfNeeded()
+                    }
                     self.updateNowPlayingPlaybackInfo()
                 }
             },
@@ -278,12 +289,7 @@ public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
             onEnded: { [weak self] in
                 DispatchQueue.main.async {
                     guard let self = self, self.isUsingEmbedPlayer else { return }
-                    if self.isRepeat && self.queue.count == 1 {
-                        self.seek(to: 0)
-                        self.play()
-                    } else {
-                        self.next()
-                    }
+                    self.handlePlaybackEnded()
                 }
             }
         )
@@ -342,6 +348,10 @@ public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
     }
 
     public func play() {
+        // Restart from the beginning when playback was stopped at the end.
+        if duration > 0, currentTime >= duration - 0.35, !isUsingEmbedPlayer {
+            seek(to: 0)
+        }
         if isUsingEmbedPlayer {
             EmbedStreamPlayer.shared.play()
         } else if let player = avPlayer {
@@ -366,6 +376,9 @@ public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
     }
 
     public func seek(to seconds: Double) {
+        if duration > 0, seconds < duration - 1 {
+            didHandleEnd = false
+        }
         if isUsingEmbedPlayer {
             EmbedStreamPlayer.shared.seek(to: seconds)
             self.currentTime = seconds
@@ -413,12 +426,51 @@ public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
 
     @objc private func playerItemDidReachEnd(notification: Notification) {
         DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            if self.isRepeat && self.queue.count == 1 {
-                self.seek(to: 0)
-                self.avPlayer?.play()
-            } else {
-                self.next()
+            self?.handlePlaybackEnded()
+        }
+    }
+
+    /// Shared end-of-track handling for AVPlayer and the embed fallback.
+    /// It advances the queue, loops the single repeated track, or stops cleanly.
+    private func handlePlaybackEnded() {
+        guard !didHandleEnd else { return }
+        didHandleEnd = true
+
+        if isRepeat && queue.count <= 1 {
+            seek(to: 0)
+            play()
+            return
+        }
+
+        let hasNextTrack = isShuffle ? queue.count > 1 : currentIndex + 1 < queue.count
+        if !queue.isEmpty && (hasNextTrack || isRepeat) {
+            next()
+        } else {
+            pause()
+            if duration > 0 { currentTime = duration }
+        }
+    }
+
+    private func recordHistoryIfNeeded() {
+        guard !historyRecorded, let track = currentTrack else { return }
+        historyRecorded = true
+        StorageService.shared.recordPlayed(track)
+        autoDownloadIfEnabled(track)
+    }
+
+    private func autoDownloadIfEnabled(_ track: Track) {
+        guard UserDefaults.standard.bool(forKey: Self.autoDownloadOnPlayKey) else { return }
+        guard !CacheService.shared.isTrackDownloaded(trackId: track.id),
+              !CacheService.shared.activeDownloads.contains(track.id) else { return }
+        Task {
+            do {
+                _ = try await CacheService.shared.downloadTrack(track: track, reportErrors: false)
+            } catch {
+                // Downloads occasionally fail on a transient CDN response; retry once.
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                if !CacheService.shared.isTrackDownloaded(trackId: track.id) {
+                    _ = try? await CacheService.shared.downloadTrack(track: track, reportErrors: false)
+                }
             }
         }
     }
@@ -427,12 +479,34 @@ public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
         let interval = CMTime(seconds: 0.5, preferredTimescale: 600)
         timeObserverToken = avPlayer?.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
             guard let self = self, !self.isUsingEmbedPlayer else { return }
-            self.currentTime = time.seconds
-            if time.seconds > 0 {
-                self.isPlaying = true
-                self.isLoading = false
-                self.stopWatchdog()
+
+            // Do not infer "playing" from elapsed time: a paused player keeps its time.
+            if let player = self.avPlayer {
+                let playing = player.timeControlStatus == .playing
+                if self.isPlaying != playing {
+                    self.isPlaying = playing
+                }
+                if playing {
+                    self.isLoading = false
+                    self.stopWatchdog()
+                    self.recordHistoryIfNeeded()
+                }
             }
+
+            if self.duration > 0 {
+                // Never let the displayed timer run past the known duration.
+                self.currentTime = min(max(time.seconds, 0), self.duration)
+                if time.seconds < self.duration - 1 {
+                    self.didHandleEnd = false
+                }
+                if time.seconds >= self.duration - 0.35,
+                   self.avPlayer?.timeControlStatus != .paused {
+                    self.handlePlaybackEnded()
+                }
+            } else {
+                self.currentTime = max(time.seconds, 0)
+            }
+
             if self.duration <= 0, let d = self.avPlayerItem?.duration, d.isValid, !d.isIndefinite {
                 self.duration = d.seconds
             } else if self.duration <= 0, let td = self.currentTrack?.durationSeconds, td > 0 {

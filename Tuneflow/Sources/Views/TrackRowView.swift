@@ -4,14 +4,24 @@ public struct TrackRowView: View {
     public let track: Track
     public let onPlay: () -> Void
     public var onAddToPlaylist: (() -> Void)? = nil
+    public var onRemove: (() -> Void)? = nil
+    public var removeHelpText: String = "Remove"
     
     @ObservedObject private var cacheService = CacheService.shared
     @ObservedObject private var storageService = StorageService.shared
     
-    public init(track: Track, onPlay: @escaping () -> Void, onAddToPlaylist: (() -> Void)? = nil) {
+    public init(
+        track: Track,
+        onPlay: @escaping () -> Void,
+        onAddToPlaylist: (() -> Void)? = nil,
+        onRemove: (() -> Void)? = nil,
+        removeHelpText: String = "Remove"
+    ) {
         self.track = track
         self.onPlay = onPlay
         self.onAddToPlaylist = onAddToPlaylist
+        self.onRemove = onRemove
+        self.removeHelpText = removeHelpText
     }
     
     private var isDownloaded: Bool {
@@ -120,6 +130,16 @@ public struct TrackRowView: View {
                     }
                     .buttonStyle(.plain)
                     .help("Add to playlist")
+                }
+                
+                // Remove from the current list
+                if let onRemove = onRemove {
+                    Button(action: onRemove) {
+                        Image(systemName: "trash")
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help(removeHelpText)
                 }
             }
         }

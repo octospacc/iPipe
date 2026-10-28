@@ -8,6 +8,7 @@ public struct NowPlayingView: View {
     
     @State private var sliderValue: Double = 0
     @State private var isDragging: Bool = false
+    @State private var showingAddToPlaylist = false
     
     public init() {}
     
@@ -201,6 +202,18 @@ public struct NowPlayingView: View {
                             .cornerRadius(20)
                         }
                         .buttonStyle(.plain)
+                        
+                        Button(action: {
+                            showingAddToPlaylist = true
+                        }) {
+                            Label("Add to Playlist", systemImage: "plus.circle")
+                                .font(.footnote)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 8)
+                                .background(Color.gray.opacity(0.15))
+                                .cornerRadius(20)
+                        }
+                        .buttonStyle(.plain)
                     }
                     .padding(.top, 4)
                 } else {
@@ -216,6 +229,11 @@ public struct NowPlayingView: View {
                     Button("Dismiss") {
                         dismiss()
                     }
+                }
+            }
+            .sheet(isPresented: $showingAddToPlaylist) {
+                if let track = player.currentTrack {
+                    AddToPlaylistSheet(track: track)
                 }
             }
         }

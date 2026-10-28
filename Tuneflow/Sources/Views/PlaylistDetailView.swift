@@ -5,6 +5,10 @@ public struct PlaylistDetailView: View {
     @ObservedObject private var storage = StorageService.shared
     @ObservedObject private var player = AudioPlayerService.shared
     
+    @Environment(\.dismiss) private var dismiss
+    @State private var showingDeleteConfirmation = false
+    @State private var selectedTrackForPlaylist: Track?
+    
     public init(playlistId: UUID) {
         self.playlistId = playlistId
     }
@@ -82,6 +86,9 @@ public struct PlaylistDetailView: View {
                                     track: track,
                                     onPlay: {
                                         player.playQueue(tracks: tracks, startIndex: index)
+                                    },
+                                    onAddToPlaylist: {
+                                        selectedTrackForPlaylist = track
                                     }
                                 )
                             }
@@ -107,6 +114,28 @@ public struct PlaylistDetailView: View {
                 Text("Playlist not found")
                     .foregroundColor(.secondary)
             }
+        }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button(role: .destructive, action: {
+                    showingDeleteConfirmation = true
+                }) {
+                    Image(systemName: "trash")
+                }
+                .help("Delete playlist")
+            }
+        }
+        .alert("Delete Playlist?", isPresented: $showingDeleteConfirmation) {
+            Button("Delete", role: .destructive) {
+                storage.deletePlaylist(id: playlistId)
+                dismiss()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("\"\(playlist?.title ?? "This playlist")\" will be deleted. The songs themselves stay in your library.")
+        }
+        .sheet(item: $selectedTrackForPlaylist) { track in
+            AddToPlaylistSheet(track: track)
         }
     }
 }

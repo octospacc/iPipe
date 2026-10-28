@@ -50,3 +50,17 @@ public struct Track: Identifiable, Codable, Hashable, Sendable {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
     }
 }
+
+/// One entry in the "History" list. Entries are unique per track: playing a song
+/// again moves it to the top instead of creating duplicates.
+public struct PlaybackHistoryEntry: Identifiable, Codable, Hashable, Sendable {
+    public let track: Track
+    public let playedAt: Date
+
+    public var id: String { track.id }
+
+    public init(track: Track, playedAt: Date = Date()) {
+        self.track = track
+        self.playedAt = playedAt
+    }
+}

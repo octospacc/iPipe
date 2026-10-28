@@ -58,7 +58,8 @@ public final class CacheService: ObservableObject, @unchecked Sendable {
     }
 
     /// Returns the path relative to the documents directory ("DownloadedAudio/<id>.m4a").
-    public func downloadTrack(track: Track, directAudioURL: URL? = nil) async throws -> String {
+    /// Set `reportErrors` to false for background downloads that should stay silent.
+    public func downloadTrack(track: Track, directAudioURL: URL? = nil, reportErrors: Bool = true) async throws -> String {
         let relative = "DownloadedAudio/\(track.id).m4a"
         if isTrackDownloaded(trackId: track.id) { return relative }
         if let existing = existingTask(track.id) { return try await existing.value }
@@ -83,8 +84,10 @@ public final class CacheService: ObservableObject, @unchecked Sendable {
                     #if DEBUG
                     print("[Tuneflow] download failed for \(track.id): \(error.localizedDescription)")
                     #endif
-                    await MainActor.run {
-                        self.lastError = "Could not download \"\(track.title)\": \(error.localizedDescription)"
+                    if reportErrors {
+                        await MainActor.run {
+                            self.lastError = "Could not download \"\(track.title)\": \(error.localizedDescription)"
+                        }
                     }
                 }
                 throw error

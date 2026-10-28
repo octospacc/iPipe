@@ -2,8 +2,11 @@ import SwiftUI
 
 public struct SettingsView: View {
     @ObservedObject private var cache = CacheService.shared
+    @ObservedObject private var storage = StorageService.shared
+    @AppStorage(AudioPlayerService.autoDownloadOnPlayKey) private var autoDownloadOnPlay = false
+    
     @State private var showingClearCacheAlert = false
-    @State private var cacheClearedMessage = false
+    @State private var showingClearHistoryAlert = false
     
     public init() {}
     
@@ -24,6 +27,33 @@ public struct SettingsView: View {
                         }
                     }
                     .padding(.vertical, 4)
+                }
+                
+                Section(header: Text("Playback")) {
+                    Toggle(isOn: $autoDownloadOnPlay) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Automatically Download Songs on Play")
+                            Text("Songs are saved for offline playback as soon as you play them.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+                
+                Section(header: Text("Listening History")) {
+                    HStack {
+                        Text("Songs in History")
+                        Spacer()
+                        Text("\(storage.history.count)")
+                            .foregroundColor(.secondary)
+                    }
+                    Button(role: .destructive, action: {
+                        showingClearHistoryAlert = true
+                    }) {
+                        Label("Clear Listening History", systemImage: "clock.arrow.circlepath")
+                            .foregroundColor(.red)
+                    }
+                    .disabled(storage.history.isEmpty)
                 }
                 
                 Section(header: Text("Offline Cache Storage")) {
@@ -65,11 +95,18 @@ public struct SettingsView: View {
             .alert("Clear Offline Cache", isPresented: $showingClearCacheAlert) {
                 Button("Delete All Audio", role: .destructive) {
                     cache.clearAllCache()
-                    cacheClearedMessage = true
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
                 Text("This will remove all downloaded offline audio files from this device.")
+            }
+            .alert("Clear Listening History", isPresented: $showingClearHistoryAlert) {
+                Button("Clear History", role: .destructive) {
+                    storage.clearHistory()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This removes every song from the History list. Your library and playlists are not affected.")
             }
         }
     }

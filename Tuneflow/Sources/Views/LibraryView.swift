@@ -8,11 +8,13 @@ public struct LibraryView: View {
     @State private var showingCreatePlaylist = false
     @State private var newPlaylistTitle = ""
     @State private var selectedFilter: LibraryFilter = .all
+    @State private var selectedTrackForPlaylist: Track?
     
     public enum LibraryFilter: String, CaseIterable, Identifiable {
         case all = "All Songs"
         case downloaded = "Downloaded"
         case playlists = "Playlists"
+        case history = "History"
         
         public var id: String { rawValue }
     }
@@ -25,6 +27,10 @@ public struct LibraryView: View {
     
     private var downloadedTracks: [Track] {
         allSavedTracks.filter { cache.isTrackDownloaded(trackId: $0.id) }
+    }
+    
+    private var historyTracks: [Track] {
+        storage.history.map(\.track)
     }
     
     public var body: some View {
@@ -43,9 +49,29 @@ public struct LibraryView: View {
                 // Content based on filter
                 switch selectedFilter {
                 case .all:
-                    trackListView(tracks: allSavedTracks, emptyMessage: "No saved tracks yet. Search and play or download music to build your local library.")
+                    trackListView(
+                        tracks: allSavedTracks,
+                        emptyMessage: "No saved tracks yet. Search and play or download music to build your local library.",
+                        emptyIcon: "music.note.list",
+                        removeHelpText: "Remove from library",
+                        onRemove: removeFromLibrary
+                    )
                 case .downloaded:
-                    trackListView(tracks: downloadedTracks, emptyMessage: "No downloaded music for offline playback. Tap the download icon next to any song to store it locally.")
+                    trackListView(
+                        tracks: downloadedTracks,
+                        emptyMessage: "No downloaded music for offline playback. Tap the download icon next to any song to store it locally.",
+                        emptyIcon: "arrow.down.circle",
+                        removeHelpText: "Remove download",
+                        onRemove: removeDownload
+                    )
+                case .history:
+                    trackListView(
+                        tracks: historyTracks,
+                        emptyMessage: "No listening history yet. Songs you play will show up here.",
+                        emptyIcon: "clock.arrow.circlepath",
+                        removeHelpText: "Remove from history",
+                        onRemove: removeFromHistory
+                    )
                 case .playlists:
                     playlistListView
                 }
@@ -73,15 +99,24 @@ public struct LibraryView: View {
                     newPlaylistTitle = ""
                 }
             }
+            .sheet(item: $selectedTrackForPlaylist) { track in
+                AddToPlaylistSheet(track: track)
+            }
         }
     }
     
     @ViewBuilder
-    private func trackListView(tracks: [Track], emptyMessage: String) -> some View {
+    private func trackListView(
+        tracks: [Track],
+        emptyMessage: String,
+        emptyIcon: String,
+        removeHelpText: String,
+        onRemove: @escaping (Track) -> Void
+    ) -> some View {
         if tracks.isEmpty {
             Spacer()
             VStack(spacing: 12) {
-                Image(systemName: selectedFilter == .downloaded ? "arrow.down.circle" : "music.note.list")
+                Image(systemName: emptyIcon)
                     .font(.system(size: 48))
                     .foregroundColor(.secondary.opacity(0.6))
                 Text(emptyMessage)
@@ -98,14 +133,19 @@ public struct LibraryView: View {
                         track: track,
                         onPlay: {
                             player.playQueue(tracks: tracks, startIndex: index)
-                        }
+                        },
+                        onAddToPlaylist: {
+                            selectedTrackForPlaylist = track
+                        },
+                        onRemove: {
+                            onRemove(track)
+                        },
+                        removeHelpText: removeHelpText
                     )
                 }
                 .onDelete { indexSet in
                     for index in indexSet {
-                        let track = tracks[index]
-                        cache.deleteTrackAudio(trackId: track.id)
-                        storage.removeTrack(trackId: track.id)
+                        onRemove(tracks[index])
                     }
                 }
             }
@@ -146,5 +186,21 @@ public struct LibraryView: View {
             }
         }
         .listStyle(.plain)
+    }
+    
+    // MARK: - Removal
+    
+    private func removeFromLibrary(_ track: Track) {
+        cache.deleteTrackAudio(trackId: track.id)
+        storage.removeTrack(trackId: track.id)
+    }
+    
+    private func removeDownload(_ track: Track) {
+        cache.deleteTrackAudio(trackId: track.id)
+        storage.updateTrackLocalPath(trackId: track.id, relativePath: nil)
+    }
+    
+    private func removeFromHistory(_ track: Track) {
+        storage.removeHistoryEntry(trackId: track.id)
     }
 }
