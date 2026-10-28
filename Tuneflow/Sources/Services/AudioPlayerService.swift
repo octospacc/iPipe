@@ -9,6 +9,11 @@ import UIKit
 import AppKit
 #endif
 
+/// Coordinates playback.
+///
+/// Online tracks play through AVPlayer using the direct audio stream resolved by
+/// `YouTubeDirectService` (this is the reliable path). If stream resolution fails,
+/// playback falls back to the official YouTube IFrame player in `EmbedStreamPlayer`.
 public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
     public static let shared = AudioPlayerService()
 
@@ -28,12 +33,19 @@ public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
     private var avPlayer: AVPlayer?
     private var avPlayerItem: AVPlayerItem?
     private var timeObserverToken: Any?
+    private var itemStatusObservation: NSKeyValueObservation?
+    private var timeControlObservation: NSKeyValueObservation?
     private var isUsingEmbedPlayer: Bool = false
+    private var didFallBackToEmbed: Bool = false
+    private var embedCallbacksConfigured: Bool = false
+
+    // Stale-work guards
+    private var loadToken = UUID()
+    private var watchdogToken = UUID()
 
     private init() {
         configureAudioSession()
         setupRemoteCommandCenter()
-        setupEmbedPlayerCallbacks()
     }
 
     deinit {
@@ -52,13 +64,205 @@ public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
         #endif
     }
 
-    private func setupEmbedPlayerCallbacks() {
+    // MARK: - Playback Control
+
+    public func playQueue(tracks: [Track], startIndex: Int = 0) {
+        guard !tracks.isEmpty, startIndex >= 0, startIndex < tracks.count else { return }
+        self.queue = tracks
+        self.currentIndex = startIndex
+        playTrack(tracks[startIndex])
+    }
+
+    public func playTrack(_ track: Track) {
+        // Cancel any in-flight resolution for the previous track.
+        loadToken = UUID()
+        stopWatchdog()
+
+        let previousWasEmbed = isUsingEmbedPlayer
+        isUsingEmbedPlayer = false
+        didFallBackToEmbed = false
+        stopAVPlayer()
+        if previousWasEmbed {
+            EmbedStreamPlayer.shared.stop()
+        }
+
+        self.currentTrack = track
+        self.isLoading = true
+        self.isPlaying = false
+        self.errorMessage = nil
+        self.currentTime = 0
+        self.duration = track.durationSeconds > 0 ? track.durationSeconds : 0
+
+        // Cached locally: instant offline AVPlayer playback.
+        if let localURL = CacheService.shared.getLocalAudioURL(trackId: track.id) {
+            setupAVPlayerWithURL(localURL, for: track, isRemote: false)
+            return
+        }
+
+        startDirectPlayback(for: track)
+    }
+
+    private func startDirectPlayback(for track: Track) {
+        let token = loadToken
+        isLoading = true
+
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                let stream = try await YouTubeDirectService.shared.resolveAudioStream(videoId: track.id)
+                try Task.checkCancellation()
+                DispatchQueue.main.async {
+                    guard self.loadToken == token, self.currentTrack?.id == track.id else { return }
+                    if let length = stream.durationSeconds, length > 0 {
+                        self.duration = length
+                    }
+                    self.setupAVPlayerWithRemoteStream(stream, for: track)
+                }
+            } catch {
+                let cancelled = (error is CancellationError) || (error as? URLError)?.code == .cancelled
+                DispatchQueue.main.async {
+                    guard !cancelled, self.loadToken == token, self.currentTrack?.id == track.id else { return }
+                    #if DEBUG
+                    print("[Tuneflow] direct stream resolution failed for \(track.id): \(error.localizedDescription)")
+                    #endif
+                    self.startEmbedFallback(for: track, reason: error.localizedDescription)
+                }
+            }
+        }
+
+        scheduleWatchdog()
+    }
+
+    // MARK: - AVPlayer setup
+
+    /// Header key accepted by AVURLAsset (undocumented but widely used and harmless
+    /// if ignored). YouTube CDN URLs are signed, so this is only a nicety.
+    private static let httpHeaderFieldsKey = "AVURLAssetHTTPHeaderFieldsKey"
+
+    private func setupAVPlayerWithRemoteStream(_ stream: YouTubeDirectService.AudioStream, for track: Track) {
+        let options: [String: Any] = [
+            Self.httpHeaderFieldsKey: [
+                "User-Agent": stream.userAgent,
+                "Referer": "https://www.youtube.com/"
+            ]
+        ]
+        let asset = AVURLAsset(url: stream.url, options: options)
+        setupAVPlayer(with: asset, for: track, isRemote: true)
+    }
+
+    private func setupAVPlayerWithURL(_ url: URL, for track: Track, isRemote: Bool) {
+        setupAVPlayer(with: AVURLAsset(url: url), for: track, isRemote: isRemote)
+    }
+
+    private func setupAVPlayer(with asset: AVURLAsset, for track: Track, isRemote: Bool) {
+        stopAVPlayer()
+
+        let item = AVPlayerItem(asset: asset)
+        item.preferredForwardBufferDuration = 10
+        avPlayerItem = item
+
+        let player = AVPlayer(playerItem: item)
+        player.actionAtItemEnd = .none
+        player.automaticallyWaitsToMinimizeStalling = true
+        avPlayer = player
+
+        itemStatusObservation = item.observe(\.status, options: [.new, .initial]) { [weak self] observed, _ in
+            DispatchQueue.main.async {
+                guard let self, self.avPlayerItem === observed else { return }
+                self.handleItemStatus(observed.status, error: observed.error, isRemote: isRemote, track: track)
+            }
+        }
+
+        timeControlObservation = player.observe(\.timeControlStatus, options: [.new]) { [weak self] observed, _ in
+            DispatchQueue.main.async {
+                guard let self, self.avPlayer === observed else { return }
+                switch observed.timeControlStatus {
+                case .playing:
+                    self.isPlaying = true
+                    self.isLoading = false
+                    self.stopWatchdog()
+                case .waitingToPlayAtSpecifiedRate:
+                    if self.currentTrack?.id == track.id { self.isLoading = true }
+                case .paused:
+                    self.isPlaying = false
+                @unknown default:
+                    break
+                }
+                self.updateNowPlayingPlaybackInfo()
+            }
+        }
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(playerItemDidReachEnd),
+            name: .AVPlayerItemDidPlayToEndTime,
+            object: item
+        )
+
+        addPeriodicTimeObserver()
+        player.play()
+        // Playback is confirmed through the time-control observer once audio really starts.
+        updateNowPlayingInfo()
+    }
+
+    private func handleItemStatus(_ status: AVPlayerItem.Status, error: Error?, isRemote: Bool, track: Track) {
+        switch status {
+        case .readyToPlay:
+            if duration <= 0, let itemDuration = avPlayerItem?.duration,
+               itemDuration.isValid, !itemDuration.isIndefinite {
+                duration = itemDuration.seconds
+            }
+        case .failed:
+            let message = error?.localizedDescription ?? "Unknown playback error."
+            #if DEBUG
+            print("[Tuneflow] AVPlayer item failed for \(track.id) (remote: \(isRemote)): \(message)")
+            #endif
+            if isRemote && !didFallBackToEmbed {
+                startEmbedFallback(for: track, reason: message)
+            } else {
+                errorMessage = "Playback failed: \(message)"
+                isLoading = false
+                isPlaying = false
+            }
+        case .unknown:
+            break
+        @unknown default:
+            break
+        }
+    }
+
+    private func startEmbedFallback(for track: Track, reason: String?) {
+        guard currentTrack?.id == track.id else { return }
+        if didFallBackToEmbed {
+            errorMessage = reason.map { "Unable to play this track: \($0)" } ?? "Unable to play this track."
+            isLoading = false
+            isPlaying = false
+            return
+        }
+        didFallBackToEmbed = true
+        isUsingEmbedPlayer = true
+        // Ignore any direct-resolution result that is still in flight.
+        loadToken = UUID()
+        stopAVPlayer()
+        configureEmbedCallbacksIfNeeded()
+
+        print("[Tuneflow] falling back to the YouTube embed player for \(track.id): \(reason ?? "")")
+        isLoading = true
+        isPlaying = false
+        EmbedStreamPlayer.shared.playVideo(videoId: track.id)
+        scheduleWatchdog()
+    }
+
+    private func configureEmbedCallbacksIfNeeded() {
+        guard !embedCallbacksConfigured else { return }
+        embedCallbacksConfigured = true
+
         EmbedStreamPlayer.shared.setCallbacks(
             onPlayingChange: { [weak self] playing in
                 DispatchQueue.main.async {
                     guard let self = self, self.isUsingEmbedPlayer else { return }
                     self.isPlaying = playing
-                    self.isLoading = false
+                    if playing { self.isLoading = false }
                     self.updateNowPlayingPlaybackInfo()
                 }
             },
@@ -67,6 +271,7 @@ public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
                     guard let self = self, self.isUsingEmbedPlayer else { return }
                     self.currentTime = current
                     if dur > 0 { self.duration = dur }
+                    if current > 0 { self.isLoading = false }
                     self.updateNowPlayingPlaybackInfo()
                 }
             },
@@ -82,77 +287,55 @@ public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
                 }
             }
         )
+
         EmbedStreamPlayer.shared.errorHandler = { [weak self] msg in
             DispatchQueue.main.async {
-                self?.errorMessage = msg
-                self?.isLoading = false
-                self?.isPlaying = false
+                guard let self = self, self.isUsingEmbedPlayer || self.didFallBackToEmbed else { return }
+                print("[Tuneflow] embed player error: \(msg)")
+                self.errorMessage = msg
+                self.isLoading = false
+                self.isPlaying = false
             }
         }
     }
 
-    // MARK: - Playback Control
-
-    public func playQueue(tracks: [Track], startIndex: Int = 0) {
-        guard !tracks.isEmpty, startIndex >= 0, startIndex < tracks.count else { return }
-        self.queue = tracks
-        self.currentIndex = startIndex
-        playTrack(tracks[startIndex])
-    }
-
-    public func playTrack(_ track: Track) {
-        self.currentTrack = track
-        self.isLoading = true
-        self.errorMessage = nil
-        self.currentTime = 0
-        self.duration = track.durationSeconds > 0 ? track.durationSeconds : 0
-
-        // Cached locally: instant offline AVPlayer playback
-        if let localURL = CacheService.shared.getLocalAudioURL(trackId: track.id) {
-            self.isUsingEmbedPlayer = false
-            EmbedStreamPlayer.shared.stop()
-            setupAVPlayerWithURL(localURL, for: track)
-            return
-        }
-
-        // Online: stream via the official YouTube embed player
-        self.isUsingEmbedPlayer = true
-        stopAVPlayer()
-        EmbedStreamPlayer.shared.playVideo(videoId: track.id)
-        self.isPlaying = true
-        updateNowPlayingInfo()
-    }
-
     private func stopAVPlayer() {
         removeTimeObserver()
-        NotificationCenter.default.removeObserver(self, name: .AVPlayerItemDidPlayToEndTime, object: avPlayerItem)
+        itemStatusObservation?.invalidate()
+        itemStatusObservation = nil
+        timeControlObservation?.invalidate()
+        timeControlObservation = nil
+        if let item = avPlayerItem {
+            NotificationCenter.default.removeObserver(self, name: .AVPlayerItemDidPlayToEndTime, object: item)
+        }
         avPlayer?.pause()
         avPlayer = nil
         avPlayerItem = nil
     }
 
-    private func setupAVPlayerWithURL(_ url: URL, for track: Track) {
-        stopAVPlayer()
+    // MARK: - Loading watchdog
 
-        let asset = AVURLAsset(url: url)
-        avPlayerItem = AVPlayerItem(asset: asset)
-        avPlayer = AVPlayer(playerItem: avPlayerItem)
-        avPlayer?.actionAtItemEnd = .none
-
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(playerItemDidReachEnd),
-            name: .AVPlayerItemDidPlayToEndTime,
-            object: avPlayerItem
-        )
-
-        addPeriodicTimeObserver()
-        avPlayer?.play()
-        self.isPlaying = true
-        self.isLoading = false
-
-        updateNowPlayingInfo()
+    /// Stops the spinner from running forever when neither engine reports progress.
+    private func scheduleWatchdog() {
+        let token = UUID()
+        watchdogToken = token
+        DispatchQueue.main.asyncAfter(deadline: .now() + 25) { [weak self] in
+            guard let self, self.watchdogToken == token else { return }
+            guard self.isLoading, !self.isPlaying else { return }
+            if self.isUsingEmbedPlayer {
+                self.errorMessage = "Playback timed out. The YouTube player did not start; check your connection and try again."
+                self.isLoading = false
+            } else if let track = self.currentTrack, !self.didFallBackToEmbed {
+                self.startEmbedFallback(for: track, reason: "Playback timed out.")
+            }
+        }
     }
+
+    private func stopWatchdog() {
+        watchdogToken = UUID()
+    }
+
+    // MARK: - Transport
 
     public func togglePlayPause() {
         if isPlaying { pause() } else { play() }
@@ -161,8 +344,11 @@ public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
     public func play() {
         if isUsingEmbedPlayer {
             EmbedStreamPlayer.shared.play()
-        } else {
-            avPlayer?.play()
+        } else if let player = avPlayer {
+            player.play()
+        } else if let track = currentTrack {
+            playTrack(track)
+            return
         }
         isPlaying = true
         updateNowPlayingPlaybackInfo()
@@ -175,6 +361,7 @@ public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
             avPlayer?.pause()
         }
         isPlaying = false
+        isLoading = false
         updateNowPlayingPlaybackInfo()
     }
 
@@ -188,12 +375,18 @@ public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
             player.seek(to: target) { [weak self] _ in
                 self?.updateNowPlayingPlaybackInfo()
             }
+            self.currentTime = seconds
         }
     }
 
     public func next() {
         guard !queue.isEmpty else { return }
-        if currentIndex + 1 < queue.count {
+        if isShuffle && queue.count > 1 {
+            var index = currentIndex
+            while index == currentIndex { index = Int.random(in: 0..<queue.count) }
+            currentIndex = index
+            playTrack(queue[index])
+        } else if currentIndex + 1 < queue.count {
             currentIndex += 1
             playTrack(queue[currentIndex])
         } else if isRepeat {
@@ -214,6 +407,10 @@ public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
         }
     }
 
+    public func clearError() {
+        errorMessage = nil
+    }
+
     @objc private func playerItemDidReachEnd(notification: Notification) {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
@@ -231,9 +428,14 @@ public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
         timeObserverToken = avPlayer?.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
             guard let self = self, !self.isUsingEmbedPlayer else { return }
             self.currentTime = time.seconds
-            if let d = self.avPlayerItem?.duration, d.isValid && !d.isIndefinite {
+            if time.seconds > 0 {
+                self.isPlaying = true
+                self.isLoading = false
+                self.stopWatchdog()
+            }
+            if self.duration <= 0, let d = self.avPlayerItem?.duration, d.isValid, !d.isIndefinite {
                 self.duration = d.seconds
-            } else if let td = self.currentTrack?.durationSeconds, td > 0 {
+            } else if self.duration <= 0, let td = self.currentTrack?.durationSeconds, td > 0 {
                 self.duration = td
             }
             self.updateNowPlayingPlaybackInfo()

@@ -3,7 +3,7 @@
 A native **SwiftUI** music player for **iOS and macOS** that talks directly to YouTube — no proxies, no API keys, no login.
 
 - **Anonymous & private**: no Google account, no telemetry. Playlists and library stay on your device.
-- **Direct YouTube**: search via YouTube's public web client endpoint; online playback via the official YouTube IFrame Player API; downloads via direct, chunked requests to YouTube's CDN.
+- **Direct YouTube**: search via YouTube's public web client endpoint; online playback through AVPlayer using a signed audio stream resolved from YouTube's player endpoint (the official YouTube IFrame player is only a fallback); downloads via direct, chunked Range requests to YouTube's CDN.
 - **Offline**: one-tap download to `Documents/DownloadedAudio/<id>.m4a`; downloaded tracks play instantly through AVPlayer.
 - **Background audio & lock screen** controls (`AVFoundation`, `MediaPlayer`).
 - **Local playlists & library** persisted as JSON.
@@ -17,11 +17,11 @@ A native **SwiftUI** music player for **iOS and macOS** that talks directly to Y
 │   └── Sources
 │       ├── Models           # Track, Playlist
 │       ├── Services
-│       │   ├── YouTubeDirectService.swift  # Search, oEmbed, direct audio stream resolution
-│       │   ├── EmbedStreamPlayer.swift     # WKWebView + YouTube IFrame API playback
+│       │   ├── YouTubeDirectService.swift  # Search, oEmbed, visitor session, audio stream resolution
+│       │   ├── EmbedStreamPlayer.swift     # Optional fallback: WKWebView + YouTube IFrame API
 │       │   ├── CacheService.swift          # Chunked downloads & offline storage
 │       │   ├── StorageService.swift        # Library/playlist persistence
-│       │   └── AudioPlayerService.swift    # AVPlayer/embed coordinator, lock screen
+│       │   └── AudioPlayerService.swift    # AVPlayer playback with embed fallback, lock screen
 │       ├── ViewModels       # SearchViewModel
 │       └── Views
 ```

@@ -53,6 +53,36 @@ public struct NowPlayingView: View {
                     }
                     .padding(.horizontal, 24)
                     
+                    if let error = player.errorMessage {
+                        VStack(spacing: 8) {
+                            Text(error)
+                                .font(.footnote)
+                                .foregroundColor(.red)
+                                .multilineTextAlignment(.center)
+                            Button("Try Again") {
+                                player.playTrack(track)
+                            }
+                            .font(.footnote)
+                            .buttonStyle(.bordered)
+                        }
+                        .padding(.horizontal, 24)
+                    }
+                    
+                    if let downloadError = cacheService.lastError {
+                        VStack(spacing: 8) {
+                            Text(downloadError)
+                                .font(.footnote)
+                                .foregroundColor(.red)
+                                .multilineTextAlignment(.center)
+                            Button("Dismiss") {
+                                cacheService.clearError()
+                            }
+                            .font(.footnote)
+                            .buttonStyle(.bordered)
+                        }
+                        .padding(.horizontal, 24)
+                    }
+                    
                     // Timeline & Slider
                     VStack(spacing: 8) {
                         Slider(

@@ -1,7 +1,6 @@
 import SwiftUI
 
 public struct SettingsView: View {
-    @AppStorage("custom_invidious_instance") private var customInstanceURL: String = ""
     @ObservedObject private var cache = CacheService.shared
     @State private var showingClearCacheAlert = false
     @State private var cacheClearedMessage = false
@@ -25,30 +24,6 @@ public struct SettingsView: View {
                         }
                     }
                     .padding(.vertical, 4)
-                }
-                
-                Section(header: Text("YouTube Backend Instance")) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Custom Invidious / Piped Host (Optional)")
-                            .font(.subheadline)
-                        TextField("e.g. inv.nadeko.net", text: $customInstanceURL)
-                            .textFieldStyle(.roundedBorder)
-                            .autocorrectionDisabled()
-                            #if os(iOS)
-                            .textInputAutocapitalization(.never)
-                            .keyboardType(.URL)
-                            #endif
-                            .onChange(of: customInstanceURL) { newValue in
-                                Task {
-                                    await YouTubeBackendService.shared.setCustomInstance(urlString: newValue)
-                                }
-                            }
-                        
-                        Text("Leave empty to use automatic redundant privacy mirrors.")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(.vertical, 2)
                 }
                 
                 Section(header: Text("Offline Cache Storage")) {

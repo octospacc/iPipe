@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		200000000000000000000001 /* Track.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000001 /* Track.swift */; };
 		200000000000000100000001 /* Playlist.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000100000001 /* Playlist.swift */; };
-		200000000000000200000001 /* YouTubeBackendService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000200000001 /* YouTubeBackendService.swift */; };
 		200000000000000300000001 /* CacheService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000300000001 /* CacheService.swift */; };
 		200000000000000400000001 /* StorageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000400000001 /* StorageService.swift */; };
 		200000000000000500000001 /* AudioPlayerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000500000001 /* AudioPlayerService.swift */; };
@@ -31,7 +30,6 @@
 /* Begin PBXFileReference section */
 		100000000000000000000001 /* Track.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Track.swift; sourceTree = "<group>"; };
 		100000000000000100000001 /* Playlist.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Playlist.swift; sourceTree = "<group>"; };
-		100000000000000200000001 /* YouTubeBackendService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeBackendService.swift; sourceTree = "<group>"; };
 		100000000000000300000001 /* CacheService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CacheService.swift; sourceTree = "<group>"; };
 		100000000000000400000001 /* StorageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageService.swift; sourceTree = "<group>"; };
 		100000000000000500000001 /* AudioPlayerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlayerService.swift; sourceTree = "<group>"; };
@@ -76,7 +74,6 @@
 		A0000001A000000200000001 /* Services */ = {
 			isa = PBXGroup;
 			children = (
-				100000000000000200000001 /* YouTubeBackendService.swift */,
 				100000000000000300000001 /* CacheService.swift */,
 				100000000000000400000001 /* StorageService.swift */,
 				100000000000000500000001 /* AudioPlayerService.swift */,
@@ -226,7 +223,6 @@
 			files = (
 				200000000000000000000001 /* Track.swift in Sources */,
 				200000000000000100000001 /* Playlist.swift in Sources */,
-				200000000000000200000001 /* YouTubeBackendService.swift in Sources */,
 				200000000000000300000001 /* CacheService.swift in Sources */,
 				200000000000000400000001 /* StorageService.swift in Sources */,
 				200000000000000500000001 /* AudioPlayerService.swift in Sources */,
