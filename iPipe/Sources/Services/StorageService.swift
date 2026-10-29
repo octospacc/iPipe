@@ -187,6 +187,13 @@ public final class StorageService: ObservableObject, @unchecked Sendable {
         DispatchQueue.main.async {
             self.history = []
             self.persistHistory()
+            self.deletePlaybackSession()
+        }
+    }
+
+    public func deletePlaybackSession() {
+        queue.async {
+            try? FileManager.default.removeItem(at: self.sessionFileURL)
         }
     }
 

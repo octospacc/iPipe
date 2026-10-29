@@ -63,6 +63,7 @@ public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
     // Stale-work guards
     private var loadToken = UUID()
     private var watchdogToken = UUID()
+    private var suppressSessionPersistence = false
 
     private init() {
         configureAudioSession()
@@ -90,6 +91,7 @@ public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
 
     public func playQueue(tracks: [Track], startIndex: Int = 0) {
         guard !tracks.isEmpty, startIndex >= 0, startIndex < tracks.count else { return }
+        self.suppressSessionPersistence = false
         self.queue = tracks
         self.currentIndex = startIndex
         playTrack(tracks[startIndex])
@@ -102,6 +104,7 @@ public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
         stopWatchdog()
         didHandleEnd = false
         historyRecorded = false
+        suppressSessionPersistence = false
 
         let previousWasEmbed = isUsingEmbedPlayer
         isUsingEmbedPlayer = false
@@ -459,8 +462,13 @@ public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
     }
 
     public func persistCurrentSession() {
-        guard !queue.isEmpty else { return }
+        guard !queue.isEmpty, !suppressSessionPersistence else { return }
         StorageService.shared.savePlaybackSession(queue: queue, currentIndex: currentIndex, currentTime: currentTime)
+    }
+
+    public func clearSavedPlaybackSession() {
+        suppressSessionPersistence = true
+        StorageService.shared.deletePlaybackSession()
     }
 
     @objc private func playerItemDidReachEnd(notification: Notification) {

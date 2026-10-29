@@ -132,10 +132,11 @@ public struct SettingsView: View {
             .alert("Clear Listening History", isPresented: $showingClearHistoryAlert) {
                 Button("Clear History", role: .destructive) {
                     storage.clearHistory()
+                    player.clearSavedPlaybackSession()
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("This removes every song from the History list. Your library and playlists are not affected.")
+                Text("This removes every song from the History list and saved Now Playing queue. Your library and playlists are not affected.")
             }
         }
     }
