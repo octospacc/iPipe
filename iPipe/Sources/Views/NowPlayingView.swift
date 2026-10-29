@@ -84,23 +84,13 @@ public struct NowPlayingView: View {
     
     @ViewBuilder
     private func artwork(for track: Track) -> some View {
-        AsyncImage(url: track.thumbnailUrl) { phase in
-            switch phase {
-            case .success(let image):
-                image
-                    .resizable()
-                    .scaledToFit()
-            default:
-                ZStack {
-                    Color.gray.opacity(0.2)
-                    Image(systemName: "music.note")
-                        .font(.system(size: 64))
-                        .foregroundColor(.secondary)
-                }
-            }
-        }
+        CachedArtworkView(
+            url: track.thumbnailUrl,
+            cornerRadius: 16,
+            placeholderIconSize: 64,
+            contentMode: .fit
+        )
         .frame(maxWidth: 320, maxHeight: 320)
-        .cornerRadius(16)
         .shadow(color: .black.opacity(0.25), radius: 16, x: 0, y: 8)
     }
     
@@ -252,10 +242,12 @@ public struct NowPlayingView: View {
                 }
             }) {
                 Label(
-                    isDownloaded ? "Downloaded" : (isDownloading ? "Downloading..." : "Download"),
+                    isDownloaded ? "Downloaded" : (isDownloading ? "Downloading…" : "Download"),
                     systemImage: isDownloaded ? "checkmark.circle.fill" : (isDownloading ? "arrow.down.circle.dotted" : "arrow.down.circle")
                 )
                 .font(.footnote)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
                 .background(Color.gray.opacity(0.15))
@@ -267,8 +259,10 @@ public struct NowPlayingView: View {
             Button(action: {
                 showingAddToPlaylist = true
             }) {
-                Label("Add to Playlist", systemImage: "plus.circle")
+                Label("Playlist", systemImage: "plus.circle")
                     .font(.footnote)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(Color.gray.opacity(0.15))
@@ -281,6 +275,8 @@ public struct NowPlayingView: View {
                 ShareLink(item: shareURL) {
                     Label("Share", systemImage: "square.and.arrow.up")
                         .font(.footnote)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
                         .background(Color.gray.opacity(0.15))
@@ -290,6 +286,7 @@ public struct NowPlayingView: View {
                 .help("Share YouTube Music link")
             }
         }
+        .lineLimit(1)
         .padding(.top, 4)
     }
     

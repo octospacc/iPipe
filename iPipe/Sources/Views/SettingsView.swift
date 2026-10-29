@@ -3,6 +3,7 @@ import SwiftUI
 public struct SettingsView: View {
     @ObservedObject private var cache = CacheService.shared
     @ObservedObject private var storage = StorageService.shared
+    @ObservedObject private var player = AudioPlayerService.shared
     @AppStorage(AudioPlayerService.autoDownloadOnPlayKey) private var autoDownloadOnPlay = false
     
     @State private var showingClearCacheAlert = false
@@ -57,19 +58,26 @@ public struct SettingsView: View {
                 }
                 
                 Section(header: Text("Offline Cache Storage")) {
+                    HStack {
+                        Text("Songs in Offline Cache")
+                        Spacer()
+                        Text("\(cache.cachedSongsCount)")
+                            .foregroundColor(.secondary)
+                    }
                     Button(role: .destructive, action: {
                         showingClearCacheAlert = true
                     }) {
                         Label("Clear Downloaded Audio Cache", systemImage: "trash")
                             .foregroundColor(.red)
                     }
+                    .disabled(cache.cachedSongsCount == 0)
                 }
                 
                 Section(header: Text("About iPipe")) {
                     HStack {
                         Text("Version")
                         Spacer()
-                        Text("1.0.0 (Native SwiftUI)")
+                        Text("1.1.0 (Native SwiftUI)")
                             .foregroundColor(.secondary)
                     }
                     HStack {
@@ -90,8 +98,23 @@ public struct SettingsView: View {
                             .foregroundColor(.secondary)
                     }
                 }
+                
+                #if os(iOS)
+                if player.currentTrack != nil {
+                    Section {
+                    } footer: {
+                        Color.clear
+                            .frame(height: 72)
+                            .listRowInsets(EdgeInsets())
+                            .listRowBackground(Color.clear)
+                    }
+                }
+                #endif
             }
             .navigationTitle("Settings")
+            .onAppear {
+                cache.updateCachedSongsCount()
+            }
             #if os(macOS)
             .formStyle(.grouped)
             .padding(.horizontal, 24)

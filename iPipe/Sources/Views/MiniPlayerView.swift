@@ -24,20 +24,8 @@ public struct MiniPlayerView: View {
                 
                 HStack(spacing: 12) {
                     // Artwork
-                    AsyncImage(url: track.thumbnailUrl) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image.resizable().scaledToFill()
-                        default:
-                            ZStack {
-                                Color.gray.opacity(0.3)
-                                Image(systemName: "music.note")
-                            }
-                        }
-                    }
-                    .frame(width: 44, height: 44)
-                    .cornerRadius(6)
-                    .clipped()
+                    CachedArtworkView(url: track.thumbnailUrl, cornerRadius: 6, contentMode: .fill)
+                        .frame(width: 44, height: 44)
                     
                     // Titles
                     VStack(alignment: .leading, spacing: 2) {

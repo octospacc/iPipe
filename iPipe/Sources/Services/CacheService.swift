@@ -9,6 +9,7 @@ public final class CacheService: ObservableObject, @unchecked Sendable {
     @Published public private(set) var downloadProgress: [String: Double] = [:]
     @Published public private(set) var activeDownloads: Set<String> = []
     @Published public private(set) var lastError: String?
+    @Published public private(set) var cachedSongsCount: Int = 0
 
     private var tasks: [String: Task<String, Error>] = [:]
     private let lock = NSLock()
@@ -23,6 +24,14 @@ public final class CacheService: ObservableObject, @unchecked Sendable {
         config.waitsForConnectivity = true
         session = URLSession(configuration: config)
         try? ensureAudioDirectoryExists()
+        updateCachedSongsCount()
+    }
+
+    public func updateCachedSongsCount() {
+        let count = (try? fileManager.contentsOfDirectory(atPath: audioDirectoryURL.path))?.filter { $0.hasSuffix(".m4a") }.count ?? 0
+        DispatchQueue.main.async {
+            self.cachedSongsCount = count
+        }
     }
 
     private var audioDirectoryURL: URL {
@@ -73,6 +82,7 @@ public final class CacheService: ObservableObject, @unchecked Sendable {
             }
             do {
                 try await self.performDownload(track: track, directURL: directAudioURL)
+                ImageCacheService.shared.prefetch(url: track.thumbnailUrl)
                 StorageService.shared.saveTrack(track)
                 StorageService.shared.updateTrackLocalPath(trackId: track.id, relativePath: relative)
                 await self.finish(track.id)
@@ -102,6 +112,7 @@ public final class CacheService: ObservableObject, @unchecked Sendable {
         await MainActor.run {
             self.activeDownloads.remove(id)
             self.downloadProgress.removeValue(forKey: id)
+            self.updateCachedSongsCount()
         }
     }
 
@@ -223,10 +234,13 @@ public final class CacheService: ObservableObject, @unchecked Sendable {
     public func deleteTrackAudio(trackId: String) {
         try? fileManager.removeItem(at: audioDirectoryURL.appendingPathComponent("\(trackId).m4a"))
         StorageService.shared.updateTrackLocalPath(trackId: trackId, relativePath: nil)
+        updateCachedSongsCount()
     }
 
     public func clearAllCache() {
         try? fileManager.removeItem(at: audioDirectoryURL)
         try? ensureAudioDirectoryExists()
+        ImageCacheService.shared.clearAllCache()
+        updateCachedSongsCount()
     }
 }

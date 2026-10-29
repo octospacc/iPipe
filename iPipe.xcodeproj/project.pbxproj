@@ -27,6 +27,8 @@
 		200000000000001200000001 /* EmbedStreamPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000001200000001 /* EmbedStreamPlayer.swift */; };
 		200000000000001300000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000001300000001 /* Assets.xcassets */; };
 		200000000000001400000001 /* ImportPlaylistSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000001400000001 /* ImportPlaylistSheet.swift */; };
+		200000000000001500000001 /* ImageCacheService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000001500000001 /* ImageCacheService.swift */; };
+		200000000000001600000001 /* CachedArtworkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000001600000001 /* CachedArtworkView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -50,6 +52,8 @@
 		100000000000001200000001 /* EmbedStreamPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmbedStreamPlayer.swift; sourceTree = "<group>"; };
 		100000000000001300000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		100000000000001400000001 /* ImportPlaylistSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportPlaylistSheet.swift; sourceTree = "<group>"; };
+		100000000000001500000001 /* ImageCacheService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCacheService.swift; sourceTree = "<group>"; };
+		100000000000001600000001 /* CachedArtworkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedArtworkView.swift; sourceTree = "<group>"; };
 		300000000000000100000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		300000000000000200000001 /* iPipe.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = iPipe.entitlements; sourceTree = "<group>"; };
 		A0000001A000000A00000001 /* iPipe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iPipe.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -83,6 +87,7 @@
 				100000000000000500000001 /* AudioPlayerService.swift */,
 				100000000000001100000001 /* YouTubeDirectService.swift */,
 				100000000000001200000001 /* EmbedStreamPlayer.swift */,
+				100000000000001500000001 /* ImageCacheService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -108,6 +113,7 @@
 				100000000000000E00000001 /* SettingsView.swift */,
 				100000000000000F00000001 /* ContentView.swift */,
 				100000000000001400000001 /* ImportPlaylistSheet.swift */,
+				100000000000001600000001 /* CachedArtworkView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -247,6 +253,8 @@
 				200000000000000F00000001 /* ContentView.swift in Sources */,
 				200000000000001000000001 /* iPipeApp.swift in Sources */,
 				200000000000001400000001 /* ImportPlaylistSheet.swift in Sources */,
+				200000000000001500000001 /* ImageCacheService.swift in Sources */,
+				200000000000001600000001 /* CachedArtworkView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -267,7 +275,7 @@
 				INFOPLIST_FILE = iPipe/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
 				MACOSX_DEPLOYMENT_TARGET = "$(RECOMMENDED_MACOSX_DEPLOYMENT_TARGET)";
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = org.eu.octt.iPipe;
 				PRODUCT_NAME = iPipe;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
@@ -293,7 +301,7 @@
 				INFOPLIST_FILE = iPipe/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
 				MACOSX_DEPLOYMENT_TARGET = "$(RECOMMENDED_MACOSX_DEPLOYMENT_TARGET)";
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = org.eu.octt.iPipe;
 				PRODUCT_NAME = iPipe;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";

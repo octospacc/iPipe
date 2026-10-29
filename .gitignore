@@ -64,6 +64,7 @@ fastlane/test_output
 # Xcode build outputs and local caches
 build/
 DerivedData/
+.derivedData/
 *.ipa
 
 # Personal user data (Crucial to exclude)

@@ -67,6 +67,7 @@ public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
     private init() {
         configureAudioSession()
         setupRemoteCommandCenter()
+        restorePlaybackSession()
     }
 
     deinit {
@@ -92,6 +93,7 @@ public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
         self.queue = tracks
         self.currentIndex = startIndex
         playTrack(tracks[startIndex])
+        persistCurrentSession()
     }
 
     public func playTrack(_ track: Track) {
@@ -113,6 +115,7 @@ public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
         self.isLoading = true
         self.isPlaying = false
         self.errorMessage = nil
+        persistCurrentSession()
         self.currentTime = 0
         self.duration = track.durationSeconds > 0 ? track.durationSeconds : 0
 
@@ -389,6 +392,7 @@ public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
         isPlaying = false
         isLoading = false
         updateNowPlayingPlaybackInfo()
+        persistCurrentSession()
     }
 
     public func seek(to seconds: Double) {
@@ -438,6 +442,25 @@ public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
 
     public func clearError() {
         errorMessage = nil
+    }
+
+    private func restorePlaybackSession() {
+        guard let session = StorageService.shared.loadPlaybackSession(), !session.queue.isEmpty else { return }
+        let index = (session.currentIndex >= 0 && session.currentIndex < session.queue.count) ? session.currentIndex : 0
+        self.queue = session.queue
+        self.currentIndex = index
+        let track = session.queue[index]
+        self.currentTrack = track
+        self.currentTime = max(0, session.currentTime)
+        self.duration = track.durationSeconds
+        self.isPlaying = false
+        self.isLoading = false
+        updateNowPlayingInfo()
+    }
+
+    public func persistCurrentSession() {
+        guard !queue.isEmpty else { return }
+        StorageService.shared.savePlaybackSession(queue: queue, currentIndex: currentIndex, currentTime: currentTime)
     }
 
     @objc private func playerItemDidReachEnd(notification: Notification) {
@@ -585,26 +608,13 @@ public final class AudioPlayerService: ObservableObject, @unchecked Sendable {
 
         if let thumbURL = track.thumbnailUrl {
             Task {
-                if let (data, _) = try? await URLSession.shared.data(from: thumbURL) {
-                    #if canImport(UIKit)
-                    if let image = UIImage(data: data) {
-                        let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
-                        await MainActor.run {
-                            var cur = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
-                            cur[MPMediaItemPropertyArtwork] = artwork
-                            MPNowPlayingInfoCenter.default().nowPlayingInfo = cur
-                        }
+                if let image = await ImageCacheService.shared.loadImage(for: thumbURL) {
+                    let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+                    await MainActor.run {
+                        var cur = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
+                        cur[MPMediaItemPropertyArtwork] = artwork
+                        MPNowPlayingInfoCenter.default().nowPlayingInfo = cur
                     }
-                    #elseif canImport(AppKit)
-                    if let image = NSImage(data: data) {
-                        let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
-                        await MainActor.run {
-                            var cur = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
-                            cur[MPMediaItemPropertyArtwork] = artwork
-                            MPNowPlayingInfoCenter.default().nowPlayingInfo = cur
-                        }
-                    }
-                    #endif
                 }
             }
         }

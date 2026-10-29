@@ -11,6 +11,7 @@ public final class StorageService: ObservableObject, @unchecked Sendable {
     private let tracksFileURL: URL
     private let playlistsFileURL: URL
     private let historyFileURL: URL
+    private let sessionFileURL: URL
     private let queue = DispatchQueue(label: "org.eu.octt.iPipe.storage", qos: .utility)
 
     private let maxHistoryEntries = 200
@@ -20,6 +21,7 @@ public final class StorageService: ObservableObject, @unchecked Sendable {
         self.tracksFileURL = docs.appendingPathComponent("library_tracks.json")
         self.playlistsFileURL = docs.appendingPathComponent("library_playlists.json")
         self.historyFileURL = docs.appendingPathComponent("playback_history.json")
+        self.sessionFileURL = docs.appendingPathComponent("last_playback_session.json")
         loadData()
     }
 
@@ -99,6 +101,24 @@ public final class StorageService: ObservableObject, @unchecked Sendable {
         }
     }
 
+    public func renamePlaylist(id: UUID, newTitle: String) {
+        let trimmed = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        if let index = playlists.firstIndex(where: { $0.id == id }) {
+            playlists[index].title = trimmed
+            playlists[index].updatedAt = Date()
+            persistPlaylists()
+        }
+    }
+
+    public func moveTrackInPlaylist(playlistId: UUID, from source: IndexSet, to destination: Int) {
+        if let index = playlists.firstIndex(where: { $0.id == playlistId }) {
+            playlists[index].trackIds.move(fromOffsets: source, toOffset: destination)
+            playlists[index].updatedAt = Date()
+            persistPlaylists()
+        }
+    }
+
     public func deletePlaylist(id: UUID) {
         playlists.removeAll { $0.id == id }
         persistPlaylists()
@@ -168,6 +188,42 @@ public final class StorageService: ObservableObject, @unchecked Sendable {
             self.history = []
             self.persistHistory()
         }
+    }
+
+    // MARK: - Playback Session Persistence
+
+    public struct PersistedPlaybackSession: Codable, Sendable {
+        public let queue: [Track]
+        public let currentIndex: Int
+        public let currentTime: Double
+
+        public init(queue: [Track], currentIndex: Int, currentTime: Double) {
+            self.queue = queue
+            self.currentIndex = currentIndex
+            self.currentTime = currentTime
+        }
+    }
+
+    public func savePlaybackSession(queue: [Track], currentIndex: Int, currentTime: Double) {
+        guard !queue.isEmpty else {
+            try? FileManager.default.removeItem(at: sessionFileURL)
+            return
+        }
+        let session = PersistedPlaybackSession(queue: queue, currentIndex: currentIndex, currentTime: currentTime)
+        self.queue.async {
+            if let data = try? JSONEncoder().encode(session) {
+                try? data.write(to: self.sessionFileURL, options: .atomic)
+            }
+        }
+    }
+
+    public func loadPlaybackSession() -> PersistedPlaybackSession? {
+        guard let data = try? Data(contentsOf: sessionFileURL),
+              let session = try? JSONDecoder().decode(PersistedPlaybackSession.self, from: data),
+              !session.queue.isEmpty else {
+            return nil
+        }
+        return session
     }
 
     private func persistTracks() {

@@ -39,23 +39,8 @@ public struct TrackRowView: View {
     public var body: some View {
         HStack(spacing: 12) {
             // Artwork
-            AsyncImage(url: track.thumbnailUrl) { phase in
-                switch phase {
-                case .success(let image):
-                    image
-                        .resizable()
-                        .scaledToFill()
-                default:
-                    ZStack {
-                        Color.gray.opacity(0.3)
-                        Image(systemName: "music.note")
-                            .foregroundColor(.secondary)
-                    }
-                }
-            }
-            .frame(width: 52, height: 52)
-            .cornerRadius(8)
-            .clipped()
+            CachedArtworkView(url: track.thumbnailUrl, cornerRadius: 8, contentMode: .fill)
+                .frame(width: 52, height: 52)
             
             // Track Info
             VStack(alignment: .leading, spacing: 4) {
