@@ -17,8 +17,8 @@ extension Image {
 #endif
 
 /// Displays an artwork thumbnail using persistent disk and memory caching.
-/// If already cached on disk, loads immediately without delay or network request,
-/// ensuring full offline support.
+/// Strictly enforces a consistent square aspect ratio within its bounds so that
+/// widescreen thumbnails never deform or overflow the layout.
 public struct CachedArtworkView: View {
     public let url: URL?
     public var cornerRadius: CGFloat
@@ -44,33 +44,44 @@ public struct CachedArtworkView: View {
     }
 
     public var body: some View {
-        ZStack {
-            if let image = image {
-                Image(platformImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: contentMode)
-            } else {
-                ZStack {
-                    Color.gray.opacity(0.25)
-                    if let size = placeholderIconSize {
-                        Image(systemName: placeholderIcon)
-                            .font(.system(size: size))
-                            .foregroundColor(.secondary)
-                    } else {
-                        Image(systemName: placeholderIcon)
-                            .foregroundColor(.secondary)
+        Color.clear
+            .aspectRatio(1, contentMode: .fit)
+            .overlay(
+                GeometryReader { geo in
+                    ZStack {
+                        if let image = image {
+                            Image(platformImage: image)
+                                .resizable()
+                                .aspectRatio(contentMode: contentMode)
+                                .frame(width: geo.size.width, height: geo.size.height)
+                                .clipped()
+                        } else {
+                            ZStack {
+                                Color.gray.opacity(0.25)
+                                if let size = placeholderIconSize {
+                                    Image(systemName: placeholderIcon)
+                                        .font(.system(size: size))
+                                        .foregroundColor(.secondary)
+                                } else {
+                                    Image(systemName: placeholderIcon)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            .frame(width: geo.size.width, height: geo.size.height)
+                        }
                     }
+                    .frame(width: geo.size.width, height: geo.size.height)
                 }
+            )
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+            .contentShape(RoundedRectangle(cornerRadius: cornerRadius))
+            .onAppear {
+                loadImageIfNeeded()
             }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
-        .onAppear {
-            loadImageIfNeeded()
-        }
-        .onChange(of: url) { newUrl in
-            image = ImageCacheService.shared.image(for: newUrl)
-            loadImageIfNeeded()
-        }
+            .onChange(of: url) { newUrl in
+                image = ImageCacheService.shared.image(for: newUrl)
+                loadImageIfNeeded()
+            }
     }
 
     private func loadImageIfNeeded() {

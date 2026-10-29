@@ -432,8 +432,8 @@ public actor YouTubeDirectService {
     }
 
     private enum PlaylistSource {
-        case videoIds([String])
-        case playlistId(String)
+        case videoIds([String], title: String?)
+        case playlistId(String, title: String?)
     }
 
     /// Imports a public YouTube / YouTube Music playlist.
@@ -446,10 +446,10 @@ public actor YouTubeDirectService {
             throw PlaylistImportError.unsupportedLink
         }
         switch source {
-        case .videoIds(let ids):
-            return try await importPlaylist(videoIds: ids)
-        case .playlistId(let id):
-            return try await importPlaylist(id: id)
+        case .videoIds(let ids, let title):
+            return try await importPlaylist(videoIds: ids, title: title)
+        case .playlistId(let id, let title):
+            return try await importPlaylist(id: id, title: title)
         }
     }
 
@@ -464,15 +464,15 @@ public actor YouTubeDirectService {
             trimmed.rangeOfCharacter(from: allowed.inverted) == nil {
             let parts = trimmed.split(separator: ",").map(String.init)
             if parts.count > 1, parts.allSatisfy({ Self.isVideoID($0) }) {
-                return .videoIds(parts)
+                return .videoIds(parts, title: nil)
             }
             var id = trimmed
             if id.hasPrefix("VL"), id.count > 2 { id = String(id.dropFirst(2)) }
             let knownPrefixes = ["PL", "UU", "LL", "FL", "RD", "OL", "TL", "WL"]
             if knownPrefixes.contains(where: { id.hasPrefix($0) }), id.count >= 10 {
-                return .playlistId(id)
+                return .playlistId(id, title: nil)
             }
-            if Self.isVideoID(id) { return .videoIds([id]) }
+            if Self.isVideoID(id) { return .videoIds([id], title: nil) }
             return nil
         }
 
@@ -483,19 +483,20 @@ public actor YouTubeDirectService {
         }
 
         let queryItems = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        let rawTitle = queryItems.first(where: { $0.name == "title" })?.value
 
         if let rawIDs = queryItems.first(where: { $0.name == "video_ids" })?.value {
             let ids = rawIDs
                 .split(separator: ",")
                 .map { $0.trimmingCharacters(in: .whitespaces) }
                 .filter { Self.isVideoID($0) }
-            return ids.isEmpty ? nil : .videoIds(ids)
+            return ids.isEmpty ? nil : .videoIds(ids, title: rawTitle)
         }
 
         if let rawList = queryItems.first(where: { $0.name == "list" })?.value {
             var listID = rawList.trimmingCharacters(in: .whitespacesAndNewlines)
             if listID.hasPrefix("VL"), listID.count > 2 { listID = String(listID.dropFirst(2)) }
-            return listID.isEmpty ? nil : .playlistId(listID)
+            return listID.isEmpty ? nil : .playlistId(listID, title: rawTitle)
         }
 
         return nil
@@ -507,7 +508,7 @@ public actor YouTubeDirectService {
         return value.rangeOfCharacter(from: allowed.inverted) == nil
     }
 
-    private func importPlaylist(videoIds rawIds: [String]) async throws -> ImportedPlaylist {
+    private func importPlaylist(videoIds rawIds: [String], title: String?) async throws -> ImportedPlaylist {
         var seen = Set<String>()
         let ids = rawIds.filter { Self.isVideoID($0) && seen.insert($0).inserted }
         guard !ids.isEmpty else { throw PlaylistImportError.noTracks }
@@ -535,10 +536,11 @@ public actor YouTubeDirectService {
 
         let finalTracks = tracks.compactMap { $0 }
         guard !finalTracks.isEmpty else { throw PlaylistImportError.noTracks }
-        return ImportedPlaylist(title: "Imported Playlist", tracks: finalTracks)
+        let finalTitle = (title?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false) ? title!.trimmingCharacters(in: .whitespacesAndNewlines) : "Imported Playlist"
+        return ImportedPlaylist(title: finalTitle, tracks: finalTracks)
     }
 
-    private func importPlaylist(id rawID: String) async throws -> ImportedPlaylist {
+    private func importPlaylist(id rawID: String, title: String?) async throws -> ImportedPlaylist {
         var playlistID = rawID.trimmingCharacters(in: .whitespacesAndNewlines)
         if playlistID.hasPrefix("VL"), playlistID.count > 2 { playlistID = String(playlistID.dropFirst(2)) }
         guard !playlistID.isEmpty else { throw PlaylistImportError.noTracks }
@@ -572,8 +574,17 @@ public actor YouTubeDirectService {
         tracks = Array(tracks.prefix(1000))
         guard !tracks.isEmpty else { throw PlaylistImportError.noTracks }
 
-        let title = (rawTitle?.isEmpty == false && rawTitle != "Untitled List") ? rawTitle! : "Imported Playlist"
-        return ImportedPlaylist(title: title, tracks: tracks)
+        let resolvedTitle: String
+        if let givenTitle = title?.trimmingCharacters(in: .whitespacesAndNewlines), !givenTitle.isEmpty {
+            resolvedTitle = givenTitle
+        } else if let parsed = rawTitle, !parsed.isEmpty, parsed != "Untitled List" {
+            resolvedTitle = parsed
+        } else if let webTitle = await fetchPlaylistWebpageTitle(playlistId: playlistID), !webTitle.isEmpty {
+            resolvedTitle = webTitle
+        } else {
+            resolvedTitle = "Imported Playlist"
+        }
+        return ImportedPlaylist(title: resolvedTitle, tracks: tracks)
     }
 
     private func browse(browseId: String?, continuation: String?, visitorData: String?) async throws -> [String: Any] {
@@ -636,26 +647,104 @@ public actor YouTubeDirectService {
         return Track(id: videoId, title: title, artist: author, durationSeconds: 0, thumbnailUrl: thumbnail)
     }
 
+    private func fetchPlaylistWebpageTitle(playlistId: String) async -> String? {
+        guard let url = URL(string: "https://www.youtube.com/playlist?list=\(playlistId)") else { return nil }
+        var req = URLRequest(url: url)
+        req.setValue(Self.desktopUserAgent, forHTTPHeaderField: "User-Agent")
+        req.setValue("en-US,en;q=0.9", forHTTPHeaderField: "Accept-Language")
+        guard let (data, resp) = try? await session.data(for: req),
+              let http = resp as? HTTPURLResponse, (200...299).contains(http.statusCode),
+              let html = String(data: data, encoding: .utf8) else {
+            return nil
+        }
+        // Match <meta property="og:title" content="...">
+        if let match = html.range(of: "<meta property=\"og:title\" content=\"[^\"]*\"", options: .regularExpression) {
+            let tag = String(html[match])
+            if let start = tag.range(of: "content=\""), let end = tag[start.upperBound...].range(of: "\"") {
+                let title = String(tag[start.upperBound..<end.lowerBound])
+                let decoded = title.replacingOccurrences(of: "&amp;", with: "&")
+                                   .replacingOccurrences(of: "&#39;", with: "'")
+                                   .replacingOccurrences(of: "&quot;", with: "\"")
+                if !decoded.isEmpty && decoded != "YouTube" && decoded != "Untitled List" {
+                    return decoded
+                }
+            }
+        }
+        // Match <title>(.*?) - YouTube</title>
+        if let match = html.range(of: "<title>[^<]+</title>", options: .regularExpression) {
+            let tag = String(html[match])
+            if let start = tag.range(of: "<title>"), let end = tag.range(of: "</title>") {
+                var title = String(tag[start.upperBound..<end.lowerBound])
+                if title.hasSuffix(" - YouTube") {
+                    title = String(title.dropLast(" - YouTube".count))
+                }
+                let decoded = title.replacingOccurrences(of: "&amp;", with: "&")
+                                   .replacingOccurrences(of: "&#39;", with: "'")
+                                   .replacingOccurrences(of: "&quot;", with: "\"")
+                if !decoded.isEmpty && decoded != "YouTube" && decoded != "Untitled List" {
+                    return decoded
+                }
+            }
+        }
+        return nil
+    }
+
     private static func playlistTitle(from json: [String: Any]) -> String? {
+        // 1. microformatDataRenderer
+        if let microformat = json["microformat"] as? [String: Any],
+           let renderer = microformat["microformatDataRenderer"] as? [String: Any],
+           let title = renderer["title"] as? String, !title.isEmpty, title != "Untitled List" {
+            return title
+        }
+        // 2. metadata.playlistMetadataRenderer
+        if let metadata = json["metadata"] as? [String: Any],
+           let playlistMetadata = metadata["playlistMetadataRenderer"] as? [String: Any],
+           let title = playlistMetadata["title"] as? String, !title.isEmpty, title != "Untitled List" {
+            return title
+        }
+        // 3. header (pageHeaderViewModel, pageHeaderRenderer, playlistHeaderRenderer)
         if let header = json["header"] as? [String: Any] {
+            if let vm = header["pageHeaderViewModel"] as? [String: Any] ?? (header["pageHeaderRenderer"] as? [String: Any])?["pageHeaderViewModel"] as? [String: Any] {
+                if let titleVM = vm["title"] as? [String: Any] {
+                    if let dynamicText = titleVM["dynamicTextViewModel"] as? [String: Any],
+                       let text = dynamicText["text"] as? [String: Any],
+                       let content = text["content"] as? String, !content.isEmpty, content != "Untitled List" {
+                        return content
+                    }
+                    if let content = titleVM["content"] as? String, !content.isEmpty, content != "Untitled List" {
+                        return content
+                    }
+                    if let title = simpleText(from: titleVM), !title.isEmpty, title != "Untitled List" {
+                        return title
+                    }
+                }
+            }
             if let page = header["pageHeaderRenderer"] as? [String: Any] {
-                if let title = page["pageTitle"] as? String, !title.isEmpty { return title }
-                if let vm = page["pageHeaderViewModel"] as? [String: Any],
-                   let titleVM = vm["title"] as? [String: Any],
-                   let dynamicText = titleVM["dynamicTextViewModel"] as? [String: Any],
-                   let text = dynamicText["text"] as? [String: Any],
-                   let content = text["content"] as? String, !content.isEmpty {
-                    return content
+                if let title = page["pageTitle"] as? String, !title.isEmpty, title != "Untitled List" { return title }
+                if let contentTitle = page["contentTitle"] as? [String: Any],
+                   let title = simpleText(from: contentTitle), !title.isEmpty, title != "Untitled List" {
+                    return title
                 }
             }
             if let playlistHeader = header["playlistHeaderRenderer"] as? [String: Any],
-               let title = simpleText(from: playlistHeader["title"]), !title.isEmpty {
+               let title = simpleText(from: playlistHeader["title"]), !title.isEmpty, title != "Untitled List" {
                 return title
             }
         }
-        if let metadata = json["metadata"] as? [String: Any],
-           let playlistMetadata = metadata["playlistMetadataRenderer"] as? [String: Any],
-           let title = playlistMetadata["title"] as? String, !title.isEmpty {
+        // 4. sidebar -> playlistSidebarRenderer -> items -> playlistSidebarPrimaryInfoRenderer -> title
+        if let sidebar = json["sidebar"] as? [String: Any],
+           let psr = sidebar["playlistSidebarRenderer"] as? [String: Any],
+           let items = psr["items"] as? [[String: Any]] {
+            for item in items {
+                if let primary = item["playlistSidebarPrimaryInfoRenderer"] as? [String: Any],
+                   let title = simpleText(from: primary["title"]), !title.isEmpty, title != "Untitled List" {
+                    return title
+                }
+            }
+        }
+        // 5. Deep search for playlistMetadataRenderer in json
+        if let meta = firstValue(forKey: "playlistMetadataRenderer", in: json) as? [String: Any],
+           let title = meta["title"] as? String, !title.isEmpty, title != "Untitled List" {
             return title
         }
         return nil

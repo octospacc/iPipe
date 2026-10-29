@@ -25,12 +25,16 @@ public struct Playlist: Identifiable, Codable, Hashable, Sendable {
     }
 
     
-    /// Builds an account-less YouTube (standard, as Music does not support it) playlist link from chained video IDs
-    /// (`www.youtube.com/watch_videos?video_ids=...`).
-    public static func youTubeMusicLink(videoIds: [String]) -> URL? {
+    /// Builds an account-less YouTube playlist link from chained video IDs with an optional title
+    /// (`www.youtube.com/watch_videos?video_ids=...&title=...`).
+    public static func youTubeMusicLink(videoIds: [String], title: String? = nil) -> URL? {
         guard !videoIds.isEmpty else { return nil }
         var components = URLComponents(string: "https://www.youtube.com/watch_videos")
-        components?.queryItems = [URLQueryItem(name: "video_ids", value: videoIds.joined(separator: ","))]
+        var queryItems = [URLQueryItem(name: "video_ids", value: videoIds.joined(separator: ","))]
+        if let title = title?.trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty {
+            queryItems.append(URLQueryItem(name: "title", value: title))
+        }
+        components?.queryItems = queryItems
         return components?.url
     }
 }

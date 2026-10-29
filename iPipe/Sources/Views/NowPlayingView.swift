@@ -88,7 +88,7 @@ public struct NowPlayingView: View {
             url: track.thumbnailUrl,
             cornerRadius: 16,
             placeholderIconSize: 64,
-            contentMode: .fit
+            contentMode: .fill
         )
         .frame(maxWidth: 320, maxHeight: 320)
         .shadow(color: .black.opacity(0.25), radius: 16, x: 0, y: 8)

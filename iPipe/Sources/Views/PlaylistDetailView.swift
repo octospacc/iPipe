@@ -25,7 +25,10 @@ public struct PlaylistDetailView: View {
     }
     
     private var playlistShareURL: URL? {
-        Playlist.youTubeMusicLink(videoIds: tracks.map(\.id))
+        guard let pl = playlist else { return nil }
+        let currentTitle = playlistTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let titleToUse = currentTitle.isEmpty ? pl.title : currentTitle
+        return Playlist.youTubeMusicLink(videoIds: tracks.map(\.id), title: titleToUse)
     }
     
     private var repeatTitle: String {
